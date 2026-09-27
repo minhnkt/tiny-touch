@@ -180,34 +180,33 @@ static void set_mode(const char *mode) {
 static void set_value(char *arguments) {
   if (!require_authorized()) return;
   char *value = strchr(arguments, ' ');
+  if (!value) { reply("ERR SET"); return; }
+  *value++ = '\0';
+
+  bool ok = false;
   uint32_t number = 0;
-  bool ok = value != NULL;
-  if (ok) { *value++ = '\0'; ok = parse_u32(value, UINT16_MAX, &number); }
-  if (ok && strcmp(arguments, "TYPE_DELAY") == 0) ok = device_config_set_typing_delay_ms(number);
-  else if (ok && strcmp(arguments, "SUBMIT_ENTER") == 0 && number <= 1) ok = device_config_set_submit_enter(number);
-  else if (ok && strcmp(arguments, "COOLDOWN") == 0) ok = device_config_set_touch_cooldown_ms(number);
-  else if (ok && strcmp(arguments, "WAKEUP_DELAY") == 0 && number <= 3000) {
-    // TODO: Persist wakeup_delay when CONFIG_VERSION bumped to 7
-    ok = true;
-  }
-  else if (strncmp(arguments, "LED_HID ", 8) == 0 || strncmp(arguments, "LED_PIV ", 8) == 0) {
-    bool is_piv = strncmp(arguments, "LED_PIV ", 8) == 0;
-    char *colors = arguments + 8;
-    char *end_str = strchr(colors, ' ');
+  if (strcmp(arguments, "LED_HID") == 0 || strcmp(arguments, "LED_PIV") == 0) {
+    bool is_piv = strcmp(arguments, "LED_PIV") == 0;
+    char *end_str = strchr(value, ' ');
     uint32_t c_start = 0, c_end = 0;
-    ok = (end_str != NULL);
-    if (ok) {
+    if (end_str) {
       *end_str++ = '\0';
-      ok = parse_u32(colors, 7, &c_start) && parse_u32(end_str, 7, &c_end) &&
-           c_start >= 1 && c_start <= 7 && c_end >= 1 && c_end <= 7;
+      if (parse_u32(value, 7, &c_start) && parse_u32(end_str, 7, &c_end) &&
+          c_start >= 1 && c_start <= 7 && c_end >= 1 && c_end <= 7) {
+        ok = is_piv ? device_config_set_piv_led((uint8_t)c_start, (uint8_t)c_end) :
+                      device_config_set_hid_led((uint8_t)c_start, (uint8_t)c_end);
+        if (ok) fingerprint_led_idle();
+      }
     }
-    if (ok) {
-      ok = is_piv ? device_config_set_piv_led((uint8_t)c_start, (uint8_t)c_end) :
-                    device_config_set_hid_led((uint8_t)c_start, (uint8_t)c_end);
-      if (ok) fingerprint_led_idle();
+  } else if (parse_u32(value, UINT16_MAX, &number)) {
+    if (strcmp(arguments, "TYPE_DELAY") == 0) ok = device_config_set_typing_delay_ms(number);
+    else if (strcmp(arguments, "SUBMIT_ENTER") == 0 && number <= 1) ok = device_config_set_submit_enter(number);
+    else if (strcmp(arguments, "COOLDOWN") == 0) ok = device_config_set_touch_cooldown_ms(number);
+    else if (strcmp(arguments, "WAKEUP_DELAY") == 0 && number <= 3000) {
+      // TODO: Persist wakeup_delay when CONFIG_VERSION bumped to 7
+      ok = true;
     }
   }
-  else ok = false;
   reply(ok ? "OK SET" : "ERR SET");
 }
 
