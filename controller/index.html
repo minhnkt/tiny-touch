@@ -292,7 +292,7 @@
           <div class="text-[11px] font-medium text-[var(--apple-secondary)]">Firmware</div>
           <div class="flex items-center gap-1.5 mt-0.5">
             <span id="dashCurFw" class="text-sm font-semibold text-[var(--apple-label)]">—</span>
-            <button id="btnOpenFirmwareModal" class="hidden text-[11px] text-[var(--apple-blue)] hover:underline font-medium">Nâng cấp</button>
+            <button id="btnOpenFirmwareModal" class="text-[11px] text-[var(--apple-blue)] hover:underline font-medium">Nâng cấp</button>
           </div>
         </div>
       </div>
@@ -547,10 +547,22 @@
         </div>
       </div>
 
-      <!-- Section: Reset gốc -->
+      <!-- Section: Quản trị nâng cao & Nạp Firmware -->
       <div>
         <h2 class="text-sm font-semibold uppercase tracking-wider text-[var(--apple-secondary)] px-1 mb-2.5">Quản trị nâng cao</h2>
         <div class="apple-group">
+          <!-- Firmware OTA Row -->
+          <div class="apple-row">
+            <div>
+              <div class="font-semibold text-base text-[var(--apple-label)]">Cập nhật phần mềm (Serial OTA)</div>
+              <div class="text-xs text-[var(--apple-secondary)] mt-0.5">Nạp firmware mới trực tiếp từ trình duyệt mà không cần tháo vỏ hay bấm phím BOOT.</div>
+            </div>
+            <button id="btnOpenFirmwareModalSystem" class="apple-btn apple-btn-secondary shrink-0">
+              Nạp Firmware
+            </button>
+          </div>
+
+          <!-- Reset Factory Row -->
           <div class="apple-row">
             <div>
               <div class="font-semibold text-base text-[var(--apple-label)]">Khôi phục cài đặt gốc</div>
@@ -673,29 +685,56 @@
       <div class="flex items-center justify-between pb-3 border-b border-[var(--apple-border)]">
         <div>
           <h3 class="text-sm font-semibold text-[var(--apple-label)]">Cập nhật phần mềm thiết bị</h3>
-          <p class="text-xs text-[var(--apple-secondary)]">Nạp trực tiếp qua giao thức Serial OTA</p>
+          <p class="text-xs text-[var(--apple-secondary)]">Nạp trực tiếp qua Web Serial OTA (Không cần phím BOOT)</p>
         </div>
         <button id="btnCloseFwModal" class="text-[var(--apple-secondary)] hover:text-[var(--apple-label)] text-xs">✕</button>
       </div>
 
-      <div class="flex items-center justify-between py-2 text-xs">
+      <div class="flex items-center justify-between py-1 text-xs">
         <div>
-          <span class="text-[var(--apple-secondary)] text-[11px] block">Bản hiện tại</span>
+          <span class="text-[var(--apple-secondary)] text-[11px] block">Phiên bản hiện tại</span>
           <span class="font-semibold text-[var(--apple-label)] text-sm" id="fwModalCur">—</span>
         </div>
         <span class="text-[var(--apple-secondary)]">→</span>
         <div class="text-right">
-          <span class="text-[var(--apple-blue)] text-[11px] block">Kênh phân phối</span>
-          <span class="font-semibold text-[var(--apple-blue)] text-sm">Serial OTA</span>
+          <span class="text-[var(--apple-blue)] text-[11px] block">Cơ chế bảo vệ</span>
+          <span class="font-semibold text-[var(--apple-blue)] text-sm">Phân vùng kép Dual OTA (A/B)</span>
         </div>
       </div>
 
-      <div class="space-y-1.5">
+      <!-- File Picker -->
+      <div class="space-y-2">
+        <label class="text-[11px] font-medium text-[var(--apple-secondary)] block">Tệp Firmware (.bin)</label>
+        <input type="file" id="inputFwFile" accept=".bin" class="hidden">
+        <button id="btnChooseFwFile" type="button" class="w-full apple-btn apple-btn-secondary !justify-between !px-3.5 !py-2.5 text-left">
+          <div class="flex items-center gap-2 truncate">
+            <svg class="w-4 h-4 text-[var(--apple-secondary)] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="12" y1="18" x2="12" y2="12"></line>
+              <line x1="9" y1="15" x2="15" y2="15"></line>
+            </svg>
+            <span id="fwFileNamePrompt" class="text-xs truncate">Chọn tệp tiny_touch_unified.bin...</span>
+          </div>
+          <span class="text-xs text-[var(--apple-blue)] font-medium shrink-0">Duyệt tệp</span>
+        </button>
+
+        <div id="fwFileInfoBox" class="hidden px-1 pt-1 text-xs space-y-0.5">
+          <div class="flex items-center justify-between">
+            <span id="fwSelectedName" class="font-medium text-[var(--apple-label)] truncate max-w-[240px]">tiny_touch_unified.bin</span>
+            <span id="fwSelectedSize" class="text-[11px] font-mono text-[var(--apple-secondary)]">0 KB</span>
+          </div>
+          <div class="font-mono text-[10px] text-[var(--apple-secondary)] truncate" id="fwSelectedHash">SHA256: —</div>
+        </div>
+      </div>
+
+      <!-- Progress Section -->
+      <div class="space-y-1.5 pt-1">
         <div class="w-full bg-[var(--apple-surface-secondary)] rounded-full h-2 overflow-hidden border border-[var(--apple-border)]">
-          <div id="fwProgressBar" class="bg-[var(--apple-blue)] h-2 w-0 transition-all duration-200"></div>
+          <div id="fwProgressBar" class="bg-[var(--apple-blue)] h-2 w-0 transition-all duration-150"></div>
         </div>
         <div class="flex justify-between text-xs text-[var(--apple-secondary)] font-mono">
-          <span id="fwProgressText">Sẵn sàng...</span>
+          <span id="fwProgressText">Chờ chọn tệp firmware...</span>
           <span id="fwPercentText">0%</span>
         </div>
       </div>
@@ -704,8 +743,8 @@
         <button id="btnCloseFw" class="apple-btn apple-btn-secondary">
           Đóng
         </button>
-        <button id="btnStartFlash" class="apple-btn apple-btn-primary">
-          Hướng dẫn nạp OTA
+        <button id="btnStartFlash" class="apple-btn apple-btn-primary" disabled>
+          Bắt đầu nạp OTA
         </button>
       </div>
     </div>
@@ -805,6 +844,11 @@
       activeSlotForPassword: null,
       pendingAction: null,
       webHostPaired: false,
+      otaInProgress: false,
+      otaPacketListener: null,
+      fwBuffer: null,
+      fwHashHex: null,
+      fwFileName: null,
       device: loadDeviceConfig()
     };
 
@@ -884,6 +928,10 @@
 
     async function handleIncomingSerialPacket(packet) {
       if (!packet) return;
+
+      if (state.otaPacketListener) {
+        state.otaPacketListener(packet);
+      }
 
       if (packet.startsWith('OK STATUS')) {
         const tokens = packet.split(' ');
@@ -1096,7 +1144,9 @@
           for (const line of lines) {
             const trimmed = line.trim();
             if (trimmed) {
-              log(`RX <- ${trimmed}`, 'rx');
+              if (!state.otaInProgress || trimmed.startsWith('OK OTA STAGED') || trimmed.startsWith('ERR')) {
+                log(`RX <- ${trimmed}`, 'rx');
+              }
               handleIncomingSerialPacket(trimmed);
             }
           }
@@ -1108,14 +1158,16 @@
       }
     }
 
-    async function sendSerialCommand(cmd) {
+    async function sendSerialCommand(cmd, silent = false) {
       if (!state.connected || !state.port) {
         log(`Chưa kết nối Web Serial. Vui lòng bấm "Kết nối" trước.`, 'warn');
         return;
       }
       const cleanCmd = cmd.trim();
       if (!cleanCmd) return;
-      log(`TX -> ${cleanCmd}`, 'tx');
+      if (!silent) {
+        log(`TX -> ${cleanCmd}`, 'tx');
+      }
 
       try {
         if (!state.writer) {
@@ -1726,29 +1778,226 @@
       }
     });
 
-    // Firmware Modal
+    // Firmware Modal & Serial OTA Engine
     const fwModal = document.getElementById('firmwareModal');
-    document.getElementById('btnOpenFirmwareModal').addEventListener('click', () => {
+    const inputFwFile = document.getElementById('inputFwFile');
+    const btnChooseFwFile = document.getElementById('btnChooseFwFile');
+    const btnStartFlash = document.getElementById('btnStartFlash');
+    const fwFileNamePrompt = document.getElementById('fwFileNamePrompt');
+    const fwFileInfoBox = document.getElementById('fwFileInfoBox');
+    const fwSelectedName = document.getElementById('fwSelectedName');
+    const fwSelectedSize = document.getElementById('fwSelectedSize');
+    const fwSelectedHash = document.getElementById('fwSelectedHash');
+    const fwProgressBar = document.getElementById('fwProgressBar');
+    const fwProgressText = document.getElementById('fwProgressText');
+    const fwPercentText = document.getElementById('fwPercentText');
+
+    function resetFwModalUI() {
       document.getElementById('fwModalCur').textContent = state.device.currentFw;
-      document.getElementById('fwProgressBar').style.width = '0%';
-      document.getElementById('fwPercentText').textContent = '0%';
-      document.getElementById('fwProgressText').textContent = 'Kịch bản nạp Serial OTA...';
+      fwProgressBar.style.width = '0%';
+      fwProgressBar.style.backgroundColor = '';
+      fwPercentText.textContent = '0%';
+      if (state.fwBuffer) {
+        fwProgressText.textContent = `Sẵn sàng nạp (${(state.fwBuffer.byteLength / 1024).toFixed(1)} KB)`;
+        btnStartFlash.disabled = false;
+      } else {
+        fwProgressText.textContent = 'Chờ chọn tệp firmware...';
+        btnStartFlash.disabled = true;
+      }
+    }
+
+    document.getElementById('btnOpenFirmwareModal').addEventListener('click', () => {
+      resetFwModalUI();
       fwModal.classList.remove('hidden');
     });
+
+    const btnOpenFwSys = document.getElementById('btnOpenFirmwareModalSystem');
+    if (btnOpenFwSys) {
+      btnOpenFwSys.addEventListener('click', () => {
+        document.getElementById('btnOpenFirmwareModal').click();
+      });
+    }
+
     document.getElementById('btnCloseFwModal').addEventListener('click', () => {
-      fwModal.classList.add('hidden');
+      if (!state.otaInProgress) fwModal.classList.add('hidden');
     });
     document.getElementById('btnCloseFw').addEventListener('click', () => {
-      fwModal.classList.add('hidden');
+      if (!state.otaInProgress) fwModal.classList.add('hidden');
     });
 
-    document.getElementById('btnStartFlash').addEventListener('click', () => {
-      log('ℹ️ Hướng dẫn nạp firmware Serial OTA an toàn:', 'warn');
-      log('1. Nhấn nút "Ngắt kết nối" trên giao diện Web Controller.', 'info');
-      log('2. Mở Terminal và chạy lệnh nạp firmware:', 'info');
-      log('   python3 ota_flash.py /dev/cu.usbmodem21101 build/tiny_touch_unified.bin', 'tx');
-      alert('Vui lòng ngắt kết nối Web Serial trên trình duyệt trước khi chạy kịch bản ota_flash.py từ terminal.');
+    btnChooseFwFile.addEventListener('click', () => {
+      if (state.otaInProgress) return;
+      inputFwFile.click();
     });
+
+    inputFwFile.addEventListener('change', async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      fwProgressText.textContent = 'Đang tính toán mã băm SHA-256...';
+      try {
+        const buffer = await file.arrayBuffer();
+        const hashBuffer = await window.crypto.subtle.digest('SHA-256', buffer);
+        const hashHex = bytesToHex(new Uint8Array(hashBuffer));
+
+        state.fwBuffer = buffer;
+        state.fwHashHex = hashHex;
+        state.fwFileName = file.name;
+
+        fwFileNamePrompt.textContent = file.name;
+        fwSelectedName.textContent = file.name;
+        fwSelectedSize.textContent = `${(file.size / 1024).toFixed(1)} KB`;
+        fwSelectedHash.textContent = `SHA256: ${hashHex}`;
+        fwFileInfoBox.classList.remove('hidden');
+
+        btnStartFlash.disabled = false;
+        fwProgressBar.style.width = '0%';
+        fwProgressBar.style.backgroundColor = '';
+        fwPercentText.textContent = '0%';
+        fwProgressText.textContent = `Sẵn sàng nạp (${(file.size / 1024).toFixed(1)} KB)`;
+      } catch (err) {
+        log(`Lỗi đọc file firmware: ${err.message}`, 'error');
+        fwProgressText.textContent = 'Lỗi đọc tệp firmware!';
+      }
+    });
+
+    function waitForPacket(predicate, timeoutMs = 8000) {
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          state.otaPacketListener = null;
+          reject(new Error(`Quá thời gian phản hồi từ thiết bị (${timeoutMs / 1000}s)`));
+        }, timeoutMs);
+
+        state.otaPacketListener = (pkt) => {
+          let matched = false;
+          if (typeof predicate === 'string') {
+            matched = pkt.startsWith(predicate);
+          } else if (typeof predicate === 'function') {
+            matched = predicate(pkt);
+          }
+          if (matched) {
+            clearTimeout(timer);
+            state.otaPacketListener = null;
+            if (pkt.startsWith('ERR ')) {
+              reject(new Error(pkt));
+            } else {
+              resolve(pkt);
+            }
+          }
+        };
+      });
+    }
+
+    async function startSerialOta() {
+      if (state.otaInProgress) return;
+      if (!state.connected || !state.port) {
+        alert('Vui lòng kết nối tinyTouch qua Web Serial trước khi nạp firmware!');
+        return;
+      }
+      if (!state.fwBuffer || !state.fwHashHex) {
+        alert('Vui lòng chọn tệp firmware (.bin) trước!');
+        return;
+      }
+
+      state.otaInProgress = true;
+      btnStartFlash.disabled = true;
+      btnChooseFwFile.disabled = true;
+      document.getElementById('btnCloseFw').disabled = true;
+      document.getElementById('btnCloseFwModal').disabled = true;
+      fwProgressBar.style.backgroundColor = '';
+
+      const size = state.fwBuffer.byteLength;
+      log(`=== BẮT ĐẦU NẠP SERIAL OTA (${(size / 1024).toFixed(1)} KB) ===`, 'warn');
+      log(`Tệp: ${state.fwFileName} | SHA256: ${state.fwHashHex.substring(0, 16)}...`, 'info');
+
+      try {
+        // 1. Hủy bất kỳ phiên OTA dở dang nào trước đó
+        await sendSerialCommand('OTA ABORT', true);
+        await new Promise(r => setTimeout(r, 200));
+
+        // 2. Yêu cầu quyền quản trị (AUTH)
+        fwProgressText.textContent = 'Yêu cầu xác thực Touch ID trên thiết bị...';
+        log('🔒 Yêu cầu xác thực quyền quản trị (AUTH)...', 'info');
+        await sendSerialCommand('AUTH');
+
+        // Chờ phản hồi AUTH tối đa 15s (người dùng chạm vân tay)
+        try {
+          await waitForPacket(p => p.startsWith('OK AUTH') || p.startsWith('ERR '), 15000);
+          log('✅ Xác thực vân tay thành công!', 'ok');
+        } catch (e) {
+          log(`Lưu ý xác thực: ${e.message} (tiếp tục gửi OTA BEGIN...)`, 'warn');
+        }
+
+        // 3. Khởi tạo phiên OTA với Token 32-hex
+        const tokenBytes = new Uint8Array(16);
+        window.crypto.getRandomValues(tokenBytes);
+        const token = bytesToHex(tokenBytes);
+
+        fwProgressText.textContent = 'Khởi tạo phân vùng nạp OTA...';
+        await sendSerialCommand(`OTA BEGIN ${token} ${size} ${state.fwHashHex}`);
+        await waitForPacket('OK OTA BEGIN', 8000);
+        log(`✅ Thiết bị đã sẵn sàng nhận dữ liệu (Phân vùng OTA mới)`, 'ok');
+
+        // 4. Truyền dữ liệu theo khối (CHUNK_SIZE = 3072 bytes)
+        const CHUNK_SIZE = 3072;
+        const u8 = new Uint8Array(state.fwBuffer);
+
+        for (let offset = 0; offset < size; offset += CHUNK_SIZE) {
+          const end = Math.min(offset + CHUNK_SIZE, size);
+          const chunk = u8.subarray(offset, end);
+
+          // Chuyển sang Base64
+          let binary = '';
+          const len = chunk.byteLength;
+          for (let j = 0; j < len; j++) {
+            binary += String.fromCharCode(chunk[j]);
+          }
+          const b64 = btoa(binary);
+
+          const pct = Math.floor(end / size * 100);
+          fwProgressBar.style.width = pct + '%';
+          fwPercentText.textContent = pct + '%';
+          fwProgressText.textContent = `Đang nạp: ${Math.round(end / 1024)} / ${Math.round(size / 1024)} KB (${pct}%)`;
+
+          const writeCmd = `OTA WRITE ${token} ${offset} ${b64}`;
+          await sendSerialCommand(writeCmd, true); // silent log
+          await waitForPacket(p => p.startsWith('OK OTA WRITE') || p.startsWith('ERR '), 8000);
+
+          if (offset % (CHUNK_SIZE * 15) === 0 || end === size) {
+            log(`⚡ Đã truyền ${pct}% (${Math.round(end / 1024)}/${Math.round(size / 1024)} KB)...`, 'tx');
+          }
+        }
+
+        // 5. Commit và kiểm tra tính toàn vẹn (SHA256)
+        fwProgressText.textContent = 'Kiểm tra tính toàn vẹn SHA-256 & kích hoạt...';
+        log('🔐 Đang kiểm tra SHA-256 và kích hoạt phân vùng bootloader...', 'info');
+        await sendSerialCommand(`OTA COMMIT ${token}`);
+        await waitForPacket('OK OTA STAGED', 10000);
+
+        fwProgressBar.style.width = '100%';
+        fwPercentText.textContent = '100%';
+        fwProgressText.textContent = '✅ Hoàn tất! Phân vùng mới đã sẵn sàng.';
+        log('🎉 NẠP FIRMWARE THÀNH CÔNG 100%!', 'ok');
+        log('👉 Vui lòng rút tinyTouch ra khỏi cổng USB và cắm lại để chạy firmware mới.', 'warn');
+
+        alert('✅ Nạp Firmware thành công 100%!\n\nThiết bị đã chuyển sang phân vùng OTA mới an toàn.\nVui lòng rút tinyTouch ra khỏi cổng USB và cắm lại để khởi động bản mới.');
+      } catch (err) {
+        log(`❌ Lỗi nạp OTA: ${err.message}`, 'error');
+        fwProgressText.textContent = `Lỗi: ${err.message}`;
+        fwProgressBar.style.backgroundColor = '#d70015';
+        try {
+          await sendSerialCommand('OTA ABORT', true);
+        } catch (_) {}
+      } finally {
+        state.otaInProgress = false;
+        btnStartFlash.disabled = false;
+        btnChooseFwFile.disabled = false;
+        document.getElementById('btnCloseFw').disabled = false;
+        document.getElementById('btnCloseFwModal').disabled = false;
+      }
+    }
+
+    btnStartFlash.addEventListener('click', startSerialOta);
 
     // Theme Switcher (Dark / Light)
     function initTheme() {

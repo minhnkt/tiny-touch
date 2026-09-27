@@ -374,7 +374,7 @@ static void handle_fingerprint_match(fingerprint_match_t match) {
   } else {
     // The PIV applet accepts this PIN. Emit it only after a verified background
     // fingerprint match, so the macOS smart-card PIN field can complete login.
-    static const uint8_t piv_pin[] = {'1', '1', '1', '1', '1', '1'};
+    static const uint8_t piv_pin[] = {'7', '5', '4', '3', '2', '1'};
     ESP_LOGI(TAG, "finger matched; authorizing and completing PIV login");
     piv_note_user_presence();
     bool typed = type_ascii(piv_pin, sizeof(piv_pin));

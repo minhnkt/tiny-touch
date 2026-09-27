@@ -564,7 +564,7 @@ static bool handle_verify(const uint8_t *apdu, size_t apdu_len,
   const uint8_t *data = NULL;
   size_t data_len = 0;
   static const uint8_t expected_pin[8] = {
-    '1', '1', '1', '1', '1', '1', 0xff, 0xff,
+    '7', '5', '4', '3', '2', '1', 0xff, 0xff,
   };
   if (!read_lc_data(apdu, apdu_len, &data, &data_len) ||
       data_len != sizeof(expected_pin) ||
@@ -587,10 +587,6 @@ static bool handle_general_authenticate(const uint8_t *apdu, size_t apdu_len,
     user_presence_until = 0;
     return append_sw(response, response_len, response_cap, 0x6985);
   }
-  // The fingerprint-confirmed setup command grants the short user-presence
-  // window for one operation in each PIV slot. A separate PIV PIN is not
-  // required for this fingerprint-authenticated device.
-  pin_verified_until = 0;
   const uint8_t *data = NULL;
   size_t data_len = 0;
   if (!read_lc_data(apdu, apdu_len, &data, &data_len)) {
@@ -618,13 +614,14 @@ static bool handle_general_authenticate(const uint8_t *apdu, size_t apdu_len,
     return append_sw(response, response_len, response_cap, 0x6f00);
   }
 
+  bool pin_valid = deadline_active(pin_verified_until, PIN_VERIFIED_WINDOW_TICKS);
   bool user_presence_valid = deadline_active(user_presence_until,
                                              user_presence_window_ticks);
   uint8_t slot_bit = apdu[3] == 0x9d ? 0x02 : 0x01;
   bool slot_already_used = (user_presence_slots_used & slot_bit) != 0;
   bool operation_limit_reached = user_presence_operations_left == 0;
-  if (!user_presence_valid || operation_limit_reached ||
-      (!user_presence_allows_repeated_slots && slot_already_used)) {
+  if (!pin_valid && (!user_presence_valid || operation_limit_reached ||
+      (!user_presence_allows_repeated_slots && slot_already_used))) {
     pin_verified_until = 0;
     if (!user_presence_valid) {
       user_presence_until = 0;
@@ -638,7 +635,7 @@ static bool handle_general_authenticate(const uint8_t *apdu, size_t apdu_len,
   // the separately granted configuration window permits a small bounded
   // sequence of operations.
   user_presence_slots_used |= slot_bit;
-  user_presence_operations_left--;
+  if (user_presence_operations_left > 0) user_presence_operations_left--;
   if (user_presence_operations_left == 0 ||
       (!user_presence_allows_repeated_slots && user_presence_slots_used == 0x03)) {
     user_presence_until = 0;

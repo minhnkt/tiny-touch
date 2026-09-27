@@ -145,7 +145,47 @@ Khi ở chế độ PIV (`SET_MODE PIV`), ngoài giao diện USB CDC để cấu
 
 ### 5.2. Luồng xác thực APDU không truyền mật khẩu
 1. Hệ điều hành gửi lệnh APDU `GENERAL AUTHENTICATE` (INS `0x87`, P1 `0x07`, P2 `0x9A` hoặc `0x9D`) mang dữ liệu thử thách ngẫu nhiên tới thiết bị qua USB CCID.
-2. Firmware kiểm tra điều kiện hiện diện sinh trắc học (**Biometric User Presence**): Yêu cầu người dùng chạm vân tay hợp lệ trong cửa sổ thời gian cho phép.
-3. Khi vân tay hợp lệ, thư viện mbedTLS trên ESP32-S3 trực tiếp thực hiện phép ký số nội bộ (`mbedtls_rsa_private`) với Private Key tương ứng trong bộ nhớ chip.
+2. Firmware kiểm tra điều kiện hiện diện sinh trắc học (**Biometric User Presence**): Yêu cầu người dùng chạm vân tay hợp lệ trong cửa sổ thời gian cho phép, hoặc phiên xác thực PIN thành công.
+3. Khi điều kiện thỏa mãn, thư viện mbedTLS trên ESP32-S3 trực tiếp thực hiện phép ký số nội bộ (`mbedtls_rsa_private`) với Private Key tương ứng trong bộ nhớ chip.
 4. Chữ ký số RSA (256 bytes) được đóng gói trong phản hồi APDU (Tag `0x7C` / `0x82`) gửi lại cho hệ điều hành đối soát với Public Key. Private Key không bao giờ bị xuất ra ngoài thiết bị.
+
+### 5.3. Quy trình ghép đôi (Pairing) PIV SmartCard trên macOS
+
+Mã PIN mặc định của thẻ PIV trong firmware: **`754321`** (6 chữ số).
+
+#### Các bước khởi tạo và liên kết tài khoản:
+
+1. **Chuyển thiết bị sang chế độ PIV:**
+   - Trên Web Controller: Vào tab **Cấu hình** -> Chọn chế độ **PIV (SmartCard)** -> Thiết bị khởi động lại giao diện USB CCID.
+
+2. **Kiểm tra nhận diện SmartCard trên macOS:**
+   ```bash
+   security list-smartcards
+   ```
+   Hệ thống phản hồi token dạng: `com.apple.pivtoken:<ID>`
+
+3. **Lấy mã băm chứng chỉ (Public Key Hash):**
+   ```bash
+   sc_auth identities
+   ```
+   Kết quả trả về danh sách Unpaired identities cùng mã Hash 40 ký tự (ví dụ: `48678DC8E216F1DBA1D7D04874AAC512360BB5D8`).
+
+4. **Thực hiện ghép đôi tài khoản:**
+   ```bash
+   sudo sc_auth pair -u $(whoami) -h <MÃ_HASH_Ở_BƯỚC_3>
+   ```
+   - Nhập mật khẩu tài khoản macOS cho lệnh `sudo`.
+   - Khi popup **SmartCard Agent** xuất hiện trên màn hình: Nhập PIN **`754321`**.
+   - Nếu hệ thống hỏi xác nhận: Nhập lại mật khẩu macOS để hoàn tất gắn kết chứng chỉ vào tài khoản.
+
+5. **Xác minh ghép đôi thành công:**
+   ```bash
+   sc_auth list $(whoami)
+   ```
+   Hiển thị mã hash chứng chỉ đã được liên kết với người dùng.
+
+6. **Cơ chế mở khóa màn hình:**
+   - Tại màn hình khóa macOS, khi cắm tinyTouch ở chế độ PIV, hệ điều hành tự động chọn phương thức SmartCard.
+   - Khi chạm ngón tay đã đăng ký vào cảm biến, thiết bị tự động gửi mã PIN `754321` qua bàn phím USB và cấp quyền ký RSA để mở khóa máy tính tức thì mà không cần gõ phím.
+
 

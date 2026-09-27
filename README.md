@@ -31,7 +31,6 @@ Dự án được tinh gọn thành hai thành phần chính:
 tiny-touch/
 ├── controller/              # Web Serial Controller UI
 │   ├── index.html           # Ứng dụng Web Controller chính (Apple System Settings Glass UI)
-│   ├── redesign.html        # Bản phát triển giao diện Apple Glass
 │   └── README.md            # Hướng dẫn chi tiết Web Controller
 │
 ├── firmware/                # Mã nguồn Firmware ESP32-S3 (ESP-IDF v5.0+)
