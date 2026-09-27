@@ -9,6 +9,7 @@
 #include "device_config.h"
 #include "esp_log.h"
 #include "esp_random.h"
+#include "esp_sleep.h"
 #include "fingerprint.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
@@ -16,6 +17,7 @@
 #include "mbedtls/aes.h"
 #include "mbedtls/md.h"
 #include "piv.h"
+#include "power_mgmt.h"
 #include "tusb.h"
 #include "usb_descriptors.h"
 
@@ -414,7 +416,7 @@ static void touch_hid_task(void *arg) {
   auth_runtime_t runtime = {
     .state = AUTH_STATE_IDLE,
     .state_started = xTaskGetTickCount(),
-    .presence_armed = false,
+    .presence_armed = (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_EXT0),
   };
   TickType_t next_recovery = 0;
   touch_pin_hid_log_event("task_started", 0);
@@ -485,6 +487,7 @@ static void touch_hid_task(void *arg) {
 
     runtime.presence_armed = false;
     touch_pin_hid_log_event("touch_detected", 0);
+    power_mgmt_note_activity();
     fingerprint_match_t match = fingerprint_authorize_poll_match();
     if (match.slot == 0) {
       touch_pin_hid_log_event("finger_no_match", 0);
@@ -495,6 +498,7 @@ static void touch_hid_task(void *arg) {
     }
 
     touch_pin_hid_log_event("finger_matched", match.slot);
+    power_mgmt_note_activity();
     // Keep result feedback bounded. Host communication must not leave the
     // sensor green when a helper, USB endpoint, or PIN field is unavailable.
     vTaskDelay(pdMS_TO_TICKS(350));

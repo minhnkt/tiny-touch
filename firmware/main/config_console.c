@@ -18,6 +18,7 @@
 #include "fingerprint.h"
 #include "firmware_update.h"
 #include "piv.h"
+#include "power_mgmt.h"
 #include "touch_pin_hid.h"
 #include "usb_ccid.h"
 
@@ -464,6 +465,7 @@ static void handle_command(void) {
 
 void config_console_feed_ble_input(const uint8_t *data, size_t len) {
   if (!data || len == 0 || !ble_rx_mutex) return;
+  power_mgmt_note_activity();
 
   if (xSemaphoreTake(ble_rx_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
     return;
@@ -509,6 +511,9 @@ static void console_task(void *arg) {
     bool activity = false;
     while (tud_cdc_available()) {
       uint32_t count = tud_cdc_read(buffer, sizeof(buffer)); activity = count != 0;
+      if (activity) {
+        power_mgmt_note_activity();
+      }
       for (uint32_t i = 0; i < count; i++) {
         if (buffer[i] == '\r') continue;
         if (buffer[i] == '\n') {
