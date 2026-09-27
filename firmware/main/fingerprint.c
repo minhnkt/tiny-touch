@@ -21,7 +21,10 @@ static const uint16_t END_SLOT = 5;
 static const uint32_t FINGER_WAIT_MS = 7000;
 static const uint8_t FP_LED_BLUE = 0x01;
 static const uint8_t FP_LED_GREEN = 0x02;
+static const uint8_t FP_LED_CYAN = 0x03;
 static const uint8_t FP_LED_RED = 0x04;
+static const uint8_t FP_LED_PURPLE = 0x05;
+static const uint8_t FP_LED_FUNC_BREATH = 1;
 static const uint8_t FP_LED_FUNC_STEADY = 3;
 
 static SemaphoreHandle_t fp_mutex;
@@ -199,15 +202,21 @@ static void set_aura(uint8_t color) {
   fp_command(0x3c, params, sizeof(params), &confirm, NULL, NULL, 1000);
 }
 
+static void set_aura_breathing(uint8_t start_color, uint8_t end_color) {
+  uint8_t params[] = {FP_LED_FUNC_BREATH, start_color, end_color, 0};
+  uint8_t confirm = 0xff;
+  fp_command(0x3c, params, sizeof(params), &confirm, NULL, NULL, 1000);
+}
+
 static void show_result(bool ok) {
   set_aura(ok ? FP_LED_GREEN : FP_LED_RED);
   vTaskDelay(pdMS_TO_TICKS(350));
-  set_aura(FP_LED_BLUE);
+  set_aura_breathing(FP_LED_CYAN, FP_LED_BLUE);
 }
 
 void fingerprint_led_idle(void) {
   if (!fp_take(1000)) return;
-  set_aura(FP_LED_BLUE);
+  set_aura_breathing(FP_LED_CYAN, FP_LED_BLUE);
   fp_give();
 }
 
