@@ -1,6 +1,5 @@
 # BÁO CÁO NGHIÊN CỨU HỆ THỐNG TINYTOUCH WEB CONTROLLER
 
-**Nguồn phân tích:** https://touch.mrold.xyz/controller/index.html  
 **Đối tượng điều khiển:** Thiết bị USB cảm biến vân tay tinyTouch (Hardware Biometrics)  
 **Giao thức kết nối:** Web Serial API (CDC ACM, 115200 baud, 8-N-1)  
 **Nền tảng hỗ trợ:** Chromium Desktop (Chrome, Edge, Opera, Cốc Cốc)

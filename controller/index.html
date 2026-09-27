@@ -350,8 +350,8 @@
                 <div id="cardHidDesc" class="text-xs text-[var(--apple-secondary)] mt-0.5">Tự động điền mật khẩu trực tiếp qua giao diện bàn phím chuẩn USB.</div>
               </div>
             </div>
-            <button id="btnSelectHid" class="apple-btn apple-btn-primary shrink-0">
-              Đang kích hoạt ✓
+            <button id="btnSelectHid" class="apple-btn apple-btn-secondary shrink-0">
+              Kích hoạt HID
             </button>
           </div>
 
@@ -406,7 +406,7 @@
       </div>
 
       <!-- Section: Phím tự động sau khi điền -->
-      <div>
+      <div id="sectionKeySeq" class="hidden">
         <h2 class="text-sm font-semibold uppercase tracking-wider text-[var(--apple-secondary)] px-1 mb-2.5">Phím kết thúc (HID Keyboard)</h2>
         <div class="apple-group p-5 space-y-4">
           <div class="flex flex-wrap gap-2.5" id="keyPresetsContainer">
@@ -709,7 +709,7 @@
     const STORAGE_KEY = 'tinyTouch_device_config_v4';
 
     const DEFAULT_CONFIG = {
-      mode: 'HID',
+      mode: null,
       currentFw: '—',
       targetFw: 'v0.1.28',
       keystrokeDelay: 100,
@@ -829,17 +829,17 @@
           statusBadge.className = 'text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-medium';
         }
       } else if (isErr) {
-        badgeHtml = '<span class="shrink-0 px-1 py-0.2 rounded text-[10px] font-mono font-semibold bg-rose-500/15 text-rose-600 dark:text-rose-400">ERR</span>';
+        badgeHtml = '<span class="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-rose-500/15 text-rose-600 dark:text-rose-400">ERR</span>';
         if (statusBadge) {
           statusBadge.textContent = 'Lỗi phản hồi';
           statusBadge.className = 'text-[11px] font-mono px-2 py-0.5 rounded bg-rose-500/15 text-rose-600 dark:text-rose-400 font-medium';
         }
       } else if (isTx) {
-        badgeHtml = '<span class="shrink-0 px-1 py-0.2 rounded text-[10px] font-mono font-semibold bg-blue-500/15 text-blue-600 dark:text-blue-400">TX</span>';
+        badgeHtml = '<span class="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-blue-500/15 text-blue-600 dark:text-blue-400">TX</span>';
       } else if (isRx) {
-        badgeHtml = '<span class="shrink-0 px-1 py-0.2 rounded text-[10px] font-mono font-semibold bg-slate-500/15 text-slate-600 dark:text-slate-400">RX</span>';
+        badgeHtml = '<span class="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-slate-500/15 text-slate-600 dark:text-slate-400">RX</span>';
       } else {
-        badgeHtml = '<span class="shrink-0 px-1 py-0.2 rounded text-[10px] font-mono text-slate-500 bg-slate-500/10">INFO</span>';
+        badgeHtml = '<span class="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-mono text-slate-500 bg-slate-500/10">INFO</span>';
       }
 
       let textColor = 'text-[var(--apple-label)]';
@@ -978,6 +978,15 @@
 
       if (packet.startsWith('OK SET MODE')) {
         log('✅ Đã chuyển đổi chế độ hoạt động', 'rx');
+        if (state.pendingMode) {
+          state.device.mode = state.pendingMode;
+          state.pendingMode = null;
+        } else if (state.pendingAction && state.pendingAction.cmd) {
+          if (state.pendingAction.cmd.includes('PIV')) state.device.mode = 'PIV';
+          else if (state.pendingAction.cmd.includes('HID')) state.device.mode = 'HID';
+        }
+        saveDeviceConfig(state.device);
+        updateTelemetry();
         await sendSerialCommand('STATUS');
         return;
       }
@@ -1160,10 +1169,6 @@
         log(`⚡ [Nhận diện vân tay] Khớp Slot #${slot}! Đang giải mã mật khẩu...`, 'ok');
 
         let pwd = localStorage.getItem('tinyTouch_pwd_slot_' + slot);
-        if (!pwd && slot === 1) {
-          pwd = 'TWluaG5rdDZA';
-          localStorage.setItem('tinyTouch_pwd_slot_1', pwd);
-        }
 
         if (!pwd) {
           log(`⚠️ Không tìm thấy mật khẩu cho Slot #${slot} trong trình duyệt! Bấm "Gán mật khẩu" để lưu.`, 'warn');
@@ -1303,8 +1308,14 @@
       const fwBtn = document.getElementById('btnOpenFirmwareModal');
 
       if (state.connected) {
-        const curMode = (state.device.mode || 'HID').toUpperCase();
-        modeEl.textContent = curMode === 'HID' ? 'HID Keyboard' : 'PIV SmartCard';
+        const curMode = (state.device.mode || '').toUpperCase();
+        if (curMode === 'HID') {
+          modeEl.textContent = 'HID Keyboard';
+        } else if (curMode === 'PIV') {
+          modeEl.textContent = 'PIV SmartCard';
+        } else {
+          modeEl.textContent = 'Đang nhận diện...';
+        }
         const savedCount = state.device.fingerprints.filter(f => f.configured).length;
         fpEl.textContent = `${savedCount} / 5 ngón`;
         if (sensorEl && sensorEl.textContent === '—') {
@@ -1333,20 +1344,42 @@
       document.getElementById('wakeupDelayDisplay').textContent = `${state.device.wakeupDelay} ms`;
       document.getElementById('rangeWakeupDelay').value = state.device.wakeupDelay;
 
-      const isHid = (state.device.mode || '').toUpperCase() === 'HID';
+      const isConnected = state.connected;
+      const curMode = isConnected && state.device.mode ? state.device.mode.toUpperCase() : null;
+      const isHid = curMode === 'HID';
+      const isPiv = curMode === 'PIV';
+
       const btnHid = document.getElementById('btnSelectHid');
       const btnPiv = document.getElementById('btnSelectPiv');
+      const cardHid = document.getElementById('cardHidMode');
+      const cardPiv = document.getElementById('cardPivMode');
+      const sectionKeySeq = document.getElementById('sectionKeySeq');
 
-      if (isHid) {
+      if (!isConnected || (!isHid && !isPiv)) {
+        // Trạng thái chưa kết nối hoặc chưa rõ chế độ: Cả 2 nút đều ở trạng thái xám
+        btnHid.className = 'apple-btn apple-btn-secondary shrink-0';
+        btnHid.textContent = 'Kích hoạt HID';
+        btnPiv.className = 'apple-btn apple-btn-secondary shrink-0';
+        btnPiv.textContent = 'Kích hoạt PIV';
+        if (cardHid) cardHid.classList.remove('bg-blue-500/[0.04]');
+        if (cardPiv) cardPiv.classList.remove('bg-indigo-500/[0.04]');
+        if (sectionKeySeq) sectionKeySeq.classList.add('hidden');
+      } else if (isHid) {
         btnHid.className = 'apple-btn apple-btn-primary shrink-0';
         btnHid.textContent = 'Đang kích hoạt ✓';
         btnPiv.className = 'apple-btn apple-btn-secondary shrink-0';
         btnPiv.textContent = 'Kích hoạt PIV';
-      } else {
+        if (cardHid) cardHid.classList.add('bg-blue-500/[0.04]');
+        if (cardPiv) cardPiv.classList.remove('bg-indigo-500/[0.04]');
+        if (sectionKeySeq) sectionKeySeq.classList.remove('hidden');
+      } else if (isPiv) {
         btnPiv.className = 'apple-btn apple-btn-primary shrink-0';
         btnPiv.textContent = 'Đang kích hoạt ✓';
         btnHid.className = 'apple-btn apple-btn-secondary shrink-0';
         btnHid.textContent = 'Kích hoạt HID';
+        if (cardPiv) cardPiv.classList.add('bg-indigo-500/[0.04]');
+        if (cardHid) cardHid.classList.remove('bg-blue-500/[0.04]');
+        if (sectionKeySeq) sectionKeySeq.classList.add('hidden');
       }
     }
 
@@ -1379,6 +1412,7 @@
 
     async function disconnectSerial() {
       state.connected = false;
+      state.device.mode = null;
       try {
         if (state.reader) {
           await state.reader.cancel();
@@ -1495,18 +1529,28 @@
     });
 
     document.getElementById('btnSelectHid').addEventListener('click', () => {
+      if (!state.connected) {
+        log('Chưa kết nối Web Serial. Vui lòng bấm "Kết nối" trước.', 'warn');
+        return;
+      }
       if ((state.device.mode || '').toUpperCase() === 'HID') {
         log('Thiết bị hiện đang ở HID Mode sẵn.', 'info');
         return;
       }
+      state.pendingMode = 'HID';
       runWithAuth({ cmd: 'SET MODE HID', desc: 'Chuyển sang HID Mode' });
     });
 
     document.getElementById('btnSelectPiv').addEventListener('click', () => {
+      if (!state.connected) {
+        log('Chưa kết nối Web Serial. Vui lòng bấm "Kết nối" trước.', 'warn');
+        return;
+      }
       if ((state.device.mode || '').toUpperCase() === 'PIV') {
         log('Thiết bị hiện đang ở PIV Mode sẵn.', 'info');
         return;
       }
+      state.pendingMode = 'PIV';
       runWithAuth({ cmd: 'SET MODE PIV', desc: 'Chuyển sang PIV Mode' });
     });
 
@@ -1722,9 +1766,8 @@
 
     // Initialize UI
     initTheme();
-    if (!localStorage.getItem('tinyTouch_pwd_slot_1')) {
-      localStorage.setItem('tinyTouch_pwd_slot_1', 'TWluaG5rdDZA');
-    }
+    state.device.mode = null;
+
     state.device.fingerprints.forEach(fp => {
       if (localStorage.getItem('tinyTouch_pwd_slot_' + fp.slot)) {
         fp.hasPassword = true;
