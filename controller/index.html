@@ -1564,6 +1564,10 @@
         if (state.connected) {
           log(`Cổng Serial ngắt kết nối: ${err.message}`, 'warn');
         }
+      } finally {
+        if (state.connected) {
+          await handleDeviceDisconnected();
+        }
       }
     }
 
@@ -1587,6 +1591,9 @@
         await state.writer.write(cleanCmd + '\n');
       } catch (err) {
         log(`Lỗi truyền Serial: ${err.message}`, 'error');
+        if (state.connected) {
+          await handleDeviceDisconnected();
+        }
       }
     }
 
@@ -1958,27 +1965,61 @@
       }
     }
 
-    async function disconnectSerial() {
+    async function handleDeviceDisconnected(isExplicit = false) {
+      if (!state.connected && !state.port) return;
       state.connected = false;
       state.device.mode = null;
+      hideTouchModal();
+      state.pendingAction = null;
+      state.pendingMode = null;
+
+      if (state.otaInProgress) {
+        state.otaInProgress = false;
+        const btnStartFlash = document.getElementById('btnStartFlash');
+        const btnChooseFwFile = document.getElementById('btnChooseFwFile');
+        const btnCloseFw = document.getElementById('btnCloseFw');
+        const btnCloseFwModal = document.getElementById('btnCloseFwModal');
+        const fwProgressText = document.getElementById('fwProgressText');
+        if (btnStartFlash) btnStartFlash.disabled = false;
+        if (btnChooseFwFile) btnChooseFwFile.disabled = false;
+        if (btnCloseFw) btnCloseFw.disabled = false;
+        if (btnCloseFwModal) btnCloseFwModal.disabled = false;
+        if (fwProgressText && fwProgressText.textContent.includes('%')) {
+          fwProgressText.textContent = 'Mất kết nối thiết bị trong quá trình nạp.';
+        }
+      }
+
       try {
         if (state.reader) {
-          await state.reader.cancel();
-          state.reader = null;
+          await state.reader.cancel().catch(() => {});
         }
+      } catch (_) {}
+      state.reader = null;
+
+      try {
         if (state.writer) {
-          await state.writer.close();
-          state.writer = null;
+          await state.writer.close().catch(() => {});
         }
+      } catch (_) {}
+      state.writer = null;
+
+      try {
         if (state.port) {
-          await state.port.close();
-          state.port = null;
+          await state.port.close().catch(() => {});
         }
-      } catch (e) {
-        console.warn('Lỗi ngắt kết nối:', e);
-      }
+      } catch (_) {}
+      state.port = null;
+
       setConnectedUI(false);
-      log('Đã ngắt kết nối thiết bị tinyTouch.', 'warn');
+      if (isExplicit) {
+        log('Đã ngắt kết nối thiết bị tinyTouch.', 'warn');
+      } else {
+        log('Mất kết nối với thiết bị. Nút Kết nối đã chuyển về trạng thái sẵn sàng kết nối lại.', 'warn');
+      }
+    }
+
+    async function disconnectSerial() {
+      await handleDeviceDisconnected(true);
     }
 
     function setConnectedUI(isConnected) {
@@ -1991,13 +2032,13 @@
         badge.className = 'flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400';
         badge.firstElementChild.className = 'w-2 h-2 rounded-full bg-emerald-500';
         text.textContent = 'CDC 115200';
-        btn.className = 'apple-btn apple-btn-destructive';
+        btn.className = 'apple-btn apple-btn-destructive text-xs !py-1.5 !px-3';
         label.textContent = 'Ngắt kết nối';
       } else {
         badge.className = 'flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[var(--apple-surface-secondary)] border border-[var(--apple-border)] text-[var(--apple-secondary)]';
         badge.firstElementChild.className = 'w-2 h-2 rounded-full bg-slate-400';
         text.textContent = 'Chưa kết nối';
-        btn.className = 'apple-btn apple-btn-primary';
+        btn.className = 'apple-btn apple-btn-primary text-xs !py-1.5 !px-3';
         label.textContent = 'Kết nối';
       }
       updateTelemetry();
@@ -2897,6 +2938,16 @@
     updateTelemetry();
     updateWebHostUI();
     document.getElementById('btnConnect').addEventListener('click', connectSerial);
+
+    // Lắng nghe sự kiện ngắt kết nối phần cứng từ Web Serial API (rút cáp USB)
+    if ('serial' in navigator) {
+      navigator.serial.addEventListener('disconnect', (event) => {
+        if (state.connected && (!event.port || event.port === state.port)) {
+          log('Sự kiện phần cứng: Thiết bị USB bị rút khỏi máy tính.', 'warn');
+          handleDeviceDisconnected(false);
+        }
+      });
+    }
   </script>
 </body>
 </html>
