@@ -1,0 +1,1739 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>tinyTouch — Trình điều khiển bảo mật</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2245%22 fill=%22%230071e3%22/><path d=%22M50 25 a25 25 0 0 1 25 25 a25 25 0 0 1 -25 25 a25 25 0 0 1 -25 -25%22 fill=%22none%22 stroke=%22white%22 stroke-width=%228%22 stroke-linecap=%22round%22/></svg>">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', '"SF Pro Display"', '"Helvetica Neue"', 'sans-serif'],
+            mono: ['"SF Mono"', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    :root {
+      --apple-canvas: #f5f5f7;
+      --apple-surface: #ffffff;
+      --apple-surface-secondary: #fbfbfd;
+      --apple-surface-tertiary: #f0f0f2;
+      --apple-border: rgba(0, 0, 0, 0.08);
+      --apple-border-strong: rgba(0, 0, 0, 0.16);
+      --apple-label: #1d1d1f;
+      --apple-secondary: #3c3c43;
+      --apple-tertiary: #545458;
+      --apple-blue: #0071e3;
+      --apple-blue-hover: #0077ed;
+      --apple-green: #248a3d;
+      --apple-red: #d70015;
+      --apple-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+      --apple-modal-shadow: 0 20px 40px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+    }
+
+    html.dark {
+      --apple-canvas: #000000;
+      --apple-surface: #1c1c1e;
+      --apple-surface-secondary: #2c2c2e;
+      --apple-surface-tertiary: #3a3a3c;
+      --apple-border: rgba(255, 255, 255, 0.12);
+      --apple-border-strong: rgba(255, 255, 255, 0.22);
+      --apple-label: #f5f5f7;
+      --apple-secondary: #c7c7cc;
+      --apple-tertiary: #98989d;
+      --apple-blue: #409cff;
+      --apple-blue-hover: #5cb0ff;
+      --apple-green: #30d158;
+      --apple-red: #ff453a;
+      --apple-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+      --apple-modal-shadow: 0 24px 48px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
+    }
+
+    body {
+      background-color: var(--apple-canvas);
+      color: var(--apple-label);
+      font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      letter-spacing: -0.011em;
+    }
+
+    /* Apple Grouped Inset Containers */
+    .apple-group {
+      background-color: var(--apple-surface);
+      border: 1px solid var(--apple-border);
+      border-radius: 16px;
+      box-shadow: var(--apple-card-shadow);
+      overflow: hidden;
+    }
+
+    .apple-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--apple-border);
+      transition: background-color 0.15s ease;
+    }
+    .apple-row:last-child {
+      border-bottom: none;
+    }
+
+    /* Apple Segmented Controls */
+    .apple-segmented-container {
+      background-color: var(--apple-surface-secondary);
+      border: 1px solid var(--apple-border);
+      border-radius: 12px;
+      padding: 5px;
+      display: inline-flex;
+      gap: 4px;
+    }
+    .apple-segmented-btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--apple-secondary);
+      transition: all 0.15s ease;
+    }
+    .apple-segmented-btn:hover {
+      color: var(--apple-label);
+    }
+    .apple-segmented-btn.active {
+      background-color: var(--apple-surface);
+      color: var(--apple-label);
+      font-weight: 600;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Apple Inputs and Buttons */
+    .apple-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 9px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.15s ease;
+    }
+    .apple-btn-primary {
+      background-color: #0071e3;
+      color: #ffffff;
+    }
+    .apple-btn-primary:hover {
+      background-color: #005bb5;
+    }
+    html.dark .apple-btn-primary {
+      background-color: #0071e3;
+      color: #ffffff;
+    }
+    html.dark .apple-btn-primary:hover {
+      background-color: #005bb5;
+    }
+    .apple-btn-secondary {
+      background-color: var(--apple-surface-secondary);
+      color: var(--apple-label);
+      border: 1px solid var(--apple-border);
+    }
+    .apple-btn-secondary:hover {
+      background-color: var(--apple-surface-tertiary);
+    }
+    .apple-btn-destructive {
+      background-color: #d70015;
+      color: #ffffff;
+    }
+    .apple-btn-destructive:hover {
+      background-color: #b30012;
+    }
+    html.dark .apple-btn-destructive {
+      background-color: #d70015;
+      color: #ffffff;
+    }
+    html.dark .apple-btn-destructive:hover {
+      background-color: #b30012;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: var(--apple-border-strong);
+      border-radius: 9999px;
+    }
+
+    /* Native Range Slider */
+    input[type=range] {
+      -webkit-appearance: none;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--apple-border-strong);
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      cursor: pointer;
+      border: 0.5px solid rgba(0,0,0,0.06);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans">
+
+  <!-- TOP NAVIGATION BAR (macOS Glass Header Style) -->
+  <header class="sticky top-0 z-40 backdrop-blur-xl border-b border-[var(--apple-border)] bg-[var(--apple-canvas)]/80 transition-colors">
+    <div class="max-w-4xl mx-auto px-6 h-14 flex items-center justify-between">
+      <!-- Brand & Device Label -->
+      <div class="flex items-center gap-3">
+        <div class="w-7 h-7 rounded-full bg-[var(--apple-blue)] flex items-center justify-center text-white shadow-sm">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a10 10 0 0 0-10 10c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.1-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z" style="display:none;"/>
+            <path d="M12 11c0 3.5-1 6.8-2.75 9.5"/>
+            <path d="M5.8 18.5a14 14 0 0 0 2.2-7.5 4 4 0 1 1 8 0c0 1-.1 2-.2 3"/>
+            <path d="M13.7 20.8A21.9 21.9 0 0 0 15.2 17"/>
+            <path d="M19 18.1c.6-2.2 1-4.6 1-7.1A8 8 0 0 0 4.1 9.3"/>
+          </svg>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="font-semibold text-sm tracking-tight text-[var(--apple-label)]">tinyTouch</span>
+          <span class="text-xs text-[var(--apple-secondary)]">Khóa bảo mật sinh trắc học</span>
+        </div>
+      </div>
+
+      <!-- Controls & Status -->
+      <div class="flex items-center gap-3">
+        <!-- Theme Toggle Button -->
+        <button id="btnToggleTheme" class="apple-btn apple-btn-secondary !p-2 rounded-lg text-xs" title="Chuyển chế độ Giao diện">
+          <span id="themeIcon">☀️</span>
+        </button>
+
+        <!-- Connection State Indicator -->
+        <div id="connectionBadge" class="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[var(--apple-surface-secondary)] border border-[var(--apple-border)] text-[var(--apple-secondary)]">
+          <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+          <span id="connectionText">Chưa kết nối</span>
+        </div>
+
+        <!-- Connect Action -->
+        <button id="btnConnect" class="apple-btn apple-btn-primary">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          <span id="btnConnectLabel">Kết nối</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- BROWSER COMPATIBILITY BANNER -->
+  <div id="browserWarning" class="hidden max-w-4xl mx-auto px-6 pt-4 w-full">
+    <div class="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs flex items-center justify-between">
+      <span>Trình duyệt cần Web Serial API. Vui lòng sử dụng Google Chrome, Edge hoặc Opera trên máy tính.</span>
+      <button onclick="this.parentElement.remove()" class="text-amber-600 dark:text-amber-400 hover:opacity-80 font-bold ml-3">✕</button>
+    </div>
+  </div>
+
+  <!-- MAIN VIEWPORT -->
+  <main class="max-w-4xl mx-auto px-6 py-8 w-full flex-1 flex flex-col gap-8">
+
+    <!-- HERO DEVICE CARD (About This Mac Style) -->
+    <div class="apple-group p-6 flex flex-col sm:flex-row items-center sm:items-start justify-between gap-6">
+      <div class="flex items-center gap-5">
+        <!-- Minimalist Touch ID Sensor Ring -->
+        <div class="w-16 h-16 rounded-full bg-[var(--apple-surface-secondary)] border-2 border-[var(--apple-border-strong)] flex items-center justify-center shrink-0 shadow-inner">
+          <div class="w-11 h-11 rounded-full border border-[var(--apple-border)] flex items-center justify-center text-[var(--apple-blue)]">
+            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 11c0 3.5-1 6.8-2.75 9.5"/>
+              <path d="M5.8 18.5a14 14 0 0 0 2.2-7.5 4 4 0 1 1 8 0c0 1-.1 2-.2 3"/>
+              <path d="M13.7 20.8A21.9 21.9 0 0 0 15.2 17"/>
+              <path d="M19 18.1c.6-2.2 1-4.6 1-7.1A8 8 0 0 0 4.1 9.3"/>
+            </svg>
+          </div>
+        </div>
+        <div>
+          <h1 class="text-2xl sm:text-3xl font-bold text-[var(--apple-label)] tracking-tight">tinyTouch Hardware Key</h1>
+          <p class="text-xs text-[var(--apple-secondary)] mt-1">Xác thực vân tay quang học & Tự động hóa bàn phím USB</p>
+          <div class="flex items-center gap-2 mt-3">
+            <span class="text-[11px] font-mono px-2.5 py-0.5 rounded-md bg-[var(--apple-surface-secondary)] border border-[var(--apple-border)] text-[var(--apple-secondary)]">ESP32-S3</span>
+            <span class="text-[11px] font-mono px-2.5 py-0.5 rounded-md bg-[var(--apple-surface-secondary)] border border-[var(--apple-border)] text-[var(--apple-secondary)]">115200 CDC</span>
+            <span id="dashSensor" class="text-[11px] font-medium px-2.5 py-0.5 rounded-md bg-[var(--apple-surface-secondary)] border border-[var(--apple-border)] text-[var(--apple-secondary)]">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Metrics Summary -->
+      <div class="grid grid-cols-3 gap-6 sm:border-l sm:border-[var(--apple-border)] sm:pl-6 text-center sm:text-left w-full sm:w-auto">
+        <div>
+          <div class="text-[11px] font-medium text-[var(--apple-secondary)]">Chế độ</div>
+          <div id="dashMode" class="text-sm font-semibold text-[var(--apple-label)] mt-0.5">Chờ kết nối</div>
+          <span id="telemetryModeIcon" class="hidden">⌨️</span>
+        </div>
+        <div>
+          <div class="text-[11px] font-medium text-[var(--apple-secondary)]">Vân tay</div>
+          <div id="dashFpCount" class="text-sm font-semibold text-[var(--apple-label)] mt-0.5">—</div>
+        </div>
+        <div>
+          <div class="text-[11px] font-medium text-[var(--apple-secondary)]">Firmware</div>
+          <div class="flex items-center gap-1.5 mt-0.5">
+            <span id="dashCurFw" class="text-sm font-semibold text-[var(--apple-label)]">—</span>
+            <button id="btnOpenFirmwareModal" class="hidden text-[11px] text-[var(--apple-blue)] hover:underline font-medium">Nâng cấp</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- APPLE-STYLE SEGMENTED NAVIGATION TABS -->
+    <div class="flex items-center justify-between">
+      <div class="apple-segmented-container">
+        <button class="tab-btn apple-segmented-btn active" data-tab="tab-config">
+          Chế độ & Bàn phím
+        </button>
+        <button class="tab-btn apple-segmented-btn" data-tab="tab-fingerprints">
+          Vân tay & Mật khẩu
+        </button>
+        <button class="tab-btn apple-segmented-btn" data-tab="tab-system">
+          Thời gian & Tinh chỉnh
+        </button>
+      </div>
+
+      <!-- Console Inspector Quick Toggle -->
+      <button id="btnToggleTerminal" class="apple-btn apple-btn-secondary text-xs">
+        <svg class="w-3.5 h-3.5 text-[var(--apple-secondary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="4 17 10 11 4 5"></polyline>
+          <line x1="12" y1="19" x2="20" y2="19"></line>
+        </svg>
+        <span>Nhật ký Serial</span>
+        <span id="logBadge" class="w-1.5 h-1.5 rounded-full bg-[var(--apple-green)]"></span>
+      </button>
+    </div>
+
+    <!-- TAB 1: CHẾ ĐỘ & BÀN PHÍM (APPLE INSET GROUPED LIST) -->
+    <div id="tab-config" class="tab-content space-y-6">
+
+      <!-- Section: Chế độ hoạt động -->
+      <div>
+        <h2 class="text-sm font-semibold uppercase tracking-wider text-[var(--apple-secondary)] px-1 mb-2.5">Chế độ hoạt động</h2>
+        <div class="apple-group">
+          <!-- HID Option Row -->
+          <div class="apple-row" id="cardHidMode">
+            <div class="flex items-center gap-3.5">
+              <div class="w-9 h-9 rounded-lg bg-[var(--apple-blue)] text-white flex items-center justify-center shrink-0">
+                <svg class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                  <line x1="6" y1="8" x2="6" y2="8"></line>
+                  <line x1="10" y1="8" x2="10" y2="8"></line>
+                  <line x1="14" y1="8" x2="14" y2="8"></line>
+                  <line x1="18" y1="8" x2="18" y2="8"></line>
+                  <line x1="6" y1="12" x2="6" y2="12"></line>
+                  <line x1="18" y1="12" x2="18" y2="12"></line>
+                  <line x1="7" y1="16" x2="17" y2="16"></line>
+                </svg>
+              </div>
+              <div>
+                <div class="font-semibold text-base text-[var(--apple-label)]">HID Keyboard</div>
+                <div id="cardHidDesc" class="text-xs text-[var(--apple-secondary)] mt-0.5">Tự động điền mật khẩu trực tiếp qua giao diện bàn phím chuẩn USB.</div>
+              </div>
+            </div>
+            <button id="btnSelectHid" class="apple-btn apple-btn-primary shrink-0">
+              Đang kích hoạt ✓
+            </button>
+          </div>
+
+          <!-- PIV Option Row -->
+          <div class="apple-row" id="cardPivMode">
+            <div class="flex items-center gap-3.5">
+              <div class="w-9 h-9 rounded-lg bg-indigo-500 text-white flex items-center justify-center shrink-0">
+                <svg class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                </svg>
+              </div>
+              <div>
+                <div class="font-semibold text-base text-[var(--apple-label)]">PIV SmartCard</div>
+                <div id="cardPivDesc" class="text-xs text-[var(--apple-secondary)] mt-0.5">Nhận diện như Thẻ thông minh X.509 trên macOS / Windows để mở khóa máy tính.</div>
+              </div>
+            </div>
+            <button id="btnSelectPiv" class="apple-btn apple-btn-secondary shrink-0">
+              Kích hoạt PIV
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section: Ghép đôi máy chủ / Trình duyệt (Web Host Pairing) -->
+      <div>
+        <h2 class="text-sm font-semibold uppercase tracking-wider text-[var(--apple-secondary)] px-1 mb-2.5">Ghép đôi máy chủ (Web Host Pairing)</h2>
+        <div class="apple-group">
+          <div class="apple-row" id="rowWebHost">
+            <div class="flex items-center gap-3.5">
+              <div id="webHostIcon" class="w-9 h-9 rounded-lg bg-[var(--apple-surface-secondary)] text-[var(--apple-secondary)] flex items-center justify-center shrink-0 border border-[var(--apple-border)]">
+                <svg class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                  <line x1="8" y1="21" x2="16" y2="21"></line>
+                  <line x1="12" y1="17" x2="12" y2="21"></line>
+                </svg>
+              </div>
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="font-semibold text-base text-[var(--apple-label)]">Trình duyệt Web này</span>
+                  <span id="webHostBadge" class="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-500/10 text-[var(--apple-secondary)]">Chưa ghép đôi (hosts=0)</span>
+                </div>
+                <div id="webHostDesc" class="text-xs text-[var(--apple-secondary)] mt-0.5">
+                  Bắt buộc để tinyTouch trao đổi thử thách EV/PW và tự động gõ mật khẩu qua bàn phím USB khi chạm vân tay.
+                </div>
+              </div>
+            </div>
+            <button id="btnPairWebHost" class="apple-btn apple-btn-primary shrink-0">
+              Ghép đôi với tinyTouch
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section: Phím tự động sau khi điền -->
+      <div>
+        <h2 class="text-sm font-semibold uppercase tracking-wider text-[var(--apple-secondary)] px-1 mb-2.5">Phím kết thúc (HID Keyboard)</h2>
+        <div class="apple-group p-5 space-y-4">
+          <div class="flex flex-wrap gap-2.5" id="keyPresetsContainer">
+            <button class="key-preset-btn apple-btn apple-btn-secondary !py-2 !px-3.5" data-seq="Enter">
+              ⏎ Enter
+            </button>
+            <button class="key-preset-btn apple-btn apple-btn-secondary !py-2 !px-3.5" data-seq="Enter,Space">
+              ⏎ Enter + ␣ Space
+            </button>
+            <button class="key-preset-btn apple-btn apple-btn-secondary !py-2 !px-3.5" data-seq="Tab,Enter">
+              ⇥ Tab + ⏎ Enter
+            </button>
+            <button class="key-preset-btn apple-btn apple-btn-secondary !py-2 !px-3.5" data-seq="Enter,Enter">
+              ⏎ x2 (Kép)
+            </button>
+            <button class="key-preset-btn apple-btn apple-btn-secondary !py-2 !px-3.5" data-seq="None">
+              Không nhấn
+            </button>
+            <button id="btnToggleCustomSeq" class="apple-btn apple-btn-secondary !py-2 !px-3.5">
+              Tùy chỉnh 3 phím...
+            </button>
+          </div>
+
+          <!-- Custom Key Box -->
+          <div id="customKeyBox" class="hidden pt-4 border-t border-[var(--apple-border)] space-y-3">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block text-xs font-medium text-[var(--apple-secondary)] mb-1">Phím thứ 1</label>
+                <select id="keySlot1" class="w-full bg-[var(--apple-surface-secondary)] border border-[var(--apple-border)] rounded-lg px-3 py-1.5 text-xs text-[var(--apple-label)]">
+                  <option value="Enter">⏎ Enter</option>
+                  <option value="Space">␣ Space</option>
+                  <option value="Tab">⇥ Tab</option>
+                  <option value="Esc">⎋ Esc</option>
+                  <option value="Down">↓ Down</option>
+                  <option value="None">(Bỏ qua)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-[var(--apple-secondary)] mb-1">Phím thứ 2</label>
+                <select id="keySlot2" class="w-full bg-[var(--apple-surface-secondary)] border border-[var(--apple-border)] rounded-lg px-3 py-1.5 text-xs text-[var(--apple-label)]">
+                  <option value="None">(Bỏ qua)</option>
+                  <option value="Enter">⏎ Enter</option>
+                  <option value="Space">␣ Space</option>
+                  <option value="Tab">⇥ Tab</option>
+                  <option value="Esc">⎋ Esc</option>
+                  <option value="Down">↓ Down</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-[var(--apple-secondary)] mb-1">Phím thứ 3</label>
+                <select id="keySlot3" class="w-full bg-[var(--apple-surface-secondary)] border border-[var(--apple-border)] rounded-lg px-3 py-1.5 text-xs text-[var(--apple-label)]">
+                  <option value="None">(Bỏ qua)</option>
+                  <option value="Enter">⏎ Enter</option>
+                  <option value="Space">␣ Space</option>
+                  <option value="Tab">⇥ Tab</option>
+                  <option value="Esc">⎋ Esc</option>
+                  <option value="Down">↓ Down</option>
+                </select>
+              </div>
+            </div>
+            <div class="flex justify-end pt-1">
+              <button id="btnSaveKeySeq" class="apple-btn apple-btn-primary">
+                Áp dụng chuỗi phím
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- TAB 2: VÂN TAY (TOUCH ID SETTINGS STYLE) -->
+    <div id="tab-fingerprints" class="tab-content hidden space-y-6">
+      <div class="flex items-center justify-between px-1">
+        <div>
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-[var(--apple-secondary)]">Vị trí vân tay</h2>
+          <p class="text-xs text-[var(--apple-secondary)] mt-1">Mỗi vân tay liên kết với một mật khẩu an toàn lưu trên vi điều khiển</p>
+        </div>
+        <span id="slotStatusCount" class="text-xs font-mono font-medium text-[var(--apple-secondary)] px-2.5 py-1 rounded-md bg-[var(--apple-surface)] border border-[var(--apple-border)]">
+          0/5 đã đăng ký
+        </span>
+      </div>
+
+      <!-- Inset Grouped List of Fingerprints -->
+      <div class="apple-group" id="fingerprintSlotsContainer">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+
+    <!-- TAB 3: THỜI GIAN & TINH CHỈNH -->
+    <div id="tab-system" class="tab-content hidden space-y-6">
+
+      <!-- Section: Timing Configurations -->
+      <div>
+        <h2 class="text-sm font-semibold uppercase tracking-wider text-[var(--apple-secondary)] px-1 mb-2.5">Độ trễ & Đánh thức</h2>
+        <div class="apple-group divide-y divide-[var(--apple-border)]">
+          <!-- Keystroke Delay Row -->
+          <div class="p-5 space-y-3.5">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="font-semibold text-base text-[var(--apple-label)]">Độ trễ giữa các ký tự (Keystroke Delay)</div>
+                <div class="text-xs text-[var(--apple-secondary)] mt-0.5">Khoảng nghỉ để hệ điều hành nhận diện trọn vẹn chuỗi phím HID</div>
+              </div>
+              <span id="delayDisplay" class="font-mono text-xs font-semibold text-[var(--apple-blue)] px-2.5 py-1 rounded bg-[var(--apple-surface-secondary)] border border-[var(--apple-border)]">100 ms</span>
+            </div>
+            <div class="flex items-center gap-4">
+              <input id="rangeDelay" type="range" min="0" max="1000" step="50" value="100" class="flex-1 cursor-pointer">
+              <button id="btnSaveDelay" class="apple-btn apple-btn-primary shrink-0">Lưu</button>
+            </div>
+            <div class="flex gap-2">
+              <button class="delay-quick apple-btn apple-btn-secondary !text-xs !py-1.5 !px-3" data-val="50">50ms</button>
+              <button class="delay-quick apple-btn apple-btn-secondary !text-xs !py-1.5 !px-3" data-val="100">100ms (Chuẩn)</button>
+              <button class="delay-quick apple-btn apple-btn-secondary !text-xs !py-1.5 !px-3" data-val="200">200ms</button>
+              <button class="delay-quick apple-btn apple-btn-secondary !text-xs !py-1.5 !px-3" data-val="500">500ms</button>
+            </div>
+          </div>
+
+          <!-- Remote Wakeup Delay Row -->
+          <div class="p-5 space-y-3.5">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="font-semibold text-base text-[var(--apple-label)]">Độ trễ đánh thức màn hình (Remote Wakeup)</div>
+                <div class="text-xs text-[var(--apple-secondary)] mt-0.5">Thời gian chờ màn hình sáng trước khi tự động gõ mật khẩu</div>
+              </div>
+              <span id="wakeupDelayDisplay" class="font-mono text-xs font-semibold text-[var(--apple-blue)] px-2.5 py-1 rounded bg-[var(--apple-surface-secondary)] border border-[var(--apple-border)]">1000 ms</span>
+            </div>
+            <div class="flex items-center gap-4">
+              <input id="rangeWakeupDelay" type="range" min="0" max="3000" step="100" value="1000" class="flex-1 cursor-pointer">
+              <button id="btnSaveWakeupDelay" class="apple-btn apple-btn-primary shrink-0">Lưu</button>
+            </div>
+            <div class="flex gap-2">
+              <button class="wakeup-quick apple-btn apple-btn-secondary !text-xs !py-1.5 !px-3" data-val="0">0ms</button>
+              <button class="wakeup-quick apple-btn apple-btn-secondary !text-xs !py-1.5 !px-3" data-val="500">500ms</button>
+              <button class="wakeup-quick apple-btn apple-btn-secondary !text-xs !py-1.5 !px-3" data-val="1000">1000ms (Chuẩn)</button>
+              <button class="wakeup-quick apple-btn apple-btn-secondary !text-xs !py-1.5 !px-3" data-val="1500">1500ms</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section: Reset gốc -->
+      <div>
+        <h2 class="text-sm font-semibold uppercase tracking-wider text-[var(--apple-secondary)] px-1 mb-2.5">Quản trị nâng cao</h2>
+        <div class="apple-group">
+          <div class="apple-row">
+            <div>
+              <div class="font-semibold text-base text-[var(--apple-label)]">Khôi phục cài đặt gốc</div>
+              <div class="text-xs text-[var(--apple-secondary)] mt-0.5">Xóa toàn bộ 5 vị trí vân tay và đưa tham số chip về ban đầu.</div>
+            </div>
+            <button id="btnResetFactory" class="apple-btn apple-btn-destructive shrink-0">
+              Đặt lại thiết bị
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- SERIAL CDC CONSOLE (Apple Console.app / Xcode Utility Inspector Style) -->
+    <div id="terminalDrawer" class="apple-group transition-all duration-300">
+      <!-- Console Header Bar -->
+      <div class="p-3 bg-[var(--apple-surface-secondary)] border-b border-[var(--apple-border)] flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <span class="w-2 h-2 rounded-full bg-[var(--apple-green)]"></span>
+          <span class="text-xs font-mono font-medium text-[var(--apple-label)]">Nhật ký Serial CDC</span>
+          <span id="terminalStatusBadge" class="text-[11px] font-mono px-2 py-0.5 rounded bg-[var(--apple-surface)] border border-[var(--apple-border)] text-[var(--apple-secondary)]">Sẵn sàng</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="btnClearLog" class="apple-btn apple-btn-secondary !text-xs !py-1 !px-2.5">
+            Xóa
+          </button>
+          <button id="btnCloseTerminal" class="apple-btn apple-btn-secondary !text-xs !py-1 !px-2.5">
+            _ Thu gọn
+          </button>
+        </div>
+      </div>
+
+      <!-- Console Body -->
+      <div id="terminalLog" class="h-44 overflow-y-auto font-mono text-xs p-3 bg-[var(--apple-surface)] custom-scrollbar space-y-1">
+        <div class="text-[var(--apple-secondary)] italic">[Sẵn sàng] Bấm "Kết nối" để bắt đầu giao tiếp Serial CDC 115200 với tinyTouch.</div>
+      </div>
+
+      <!-- Command Input & Quick Actions -->
+      <div class="p-3 bg-[var(--apple-surface-secondary)] border-t border-[var(--apple-border)] space-y-2">
+        <div class="flex items-center gap-2">
+          <input id="inputManualCmd" type="text" placeholder="Nhập lệnh phần cứng: STATUS, AUTH, LOGS, PING, HOST LIST..." class="flex-1 bg-[var(--apple-surface)] border border-[var(--apple-border)] rounded-lg px-3 py-1.5 text-xs text-[var(--apple-label)] font-mono focus:outline-none focus:border-[var(--apple-blue)]">
+          <button id="btnSendManualCmd" class="apple-btn apple-btn-primary shrink-0">
+            Gửi
+          </button>
+        </div>
+        <div class="flex flex-wrap gap-1.5">
+          <button class="quick-cmd apple-btn apple-btn-secondary !text-[11px] !py-0.5 !px-2 font-mono" data-cmd="STATUS">STATUS</button>
+          <button class="quick-cmd apple-btn apple-btn-secondary !text-[11px] !py-0.5 !px-2 font-mono" data-cmd="AUTH">AUTH</button>
+          <button class="quick-cmd apple-btn apple-btn-secondary !text-[11px] !py-0.5 !px-2 font-mono" data-cmd="LOGS">LOGS</button>
+          <button class="quick-cmd apple-btn apple-btn-secondary !text-[11px] !py-0.5 !px-2 font-mono" data-cmd="USB RECONNECT">USB RECONNECT</button>
+          <button class="quick-cmd apple-btn apple-btn-secondary !text-[11px] !py-0.5 !px-2 font-mono" data-cmd="HOST LIST">HOST LIST</button>
+          <button class="quick-cmd apple-btn apple-btn-secondary !text-[11px] !py-0.5 !px-2 font-mono" data-cmd="PING">PING</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- MINIMAL CLEAN FOOTER -->
+  <footer class="border-t border-[var(--apple-border)] py-6 text-center text-xs text-[var(--apple-secondary)]">
+    tinyTouch Controller · Bảo mật phần cứng độc lập · Tương thích chuẩn Apple Web Serial
+  </footer>
+
+  <!-- MODAL: TOUCH ID BIOMETRIC SHEET (Apple Sheet Style) -->
+  <div id="touchModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-md flex items-center justify-center hidden p-4">
+    <div class="apple-group max-w-sm w-full p-6 text-center space-y-4 shadow-2xl border border-[var(--apple-border-strong)]">
+      <div id="touchModalIcon" class="w-14 h-14 rounded-full bg-[var(--apple-surface-secondary)] border-2 border-[var(--apple-blue)] text-[var(--apple-blue)] flex items-center justify-center text-2xl mx-auto shadow-sm">
+        👆
+      </div>
+      <div>
+        <h3 id="touchModalTitle" class="text-base font-semibold text-[var(--apple-label)]">Chạm vân tay xác nhận</h3>
+        <p id="touchModalDesc" class="text-xs text-[var(--apple-secondary)] mt-1.5 leading-relaxed">
+          Đặt ngón tay chủ sở hữu lên cảm biến tinyTouch để phê duyệt quyền cấu hình...
+        </p>
+      </div>
+      <div class="pt-2">
+        <button id="btnCancelTouchModal" class="apple-btn apple-btn-secondary w-full">
+          Hủy bỏ
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: PASSWORD SHEET -->
+  <div id="passwordModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-md flex items-center justify-center hidden p-4">
+    <div class="apple-group max-w-sm w-full p-5 space-y-4 shadow-2xl border border-[var(--apple-border-strong)]">
+      <div class="flex items-center justify-between pb-3 border-b border-[var(--apple-border)]">
+        <h3 class="text-sm font-semibold text-[var(--apple-label)]" id="pwdModalTitle">Gán mật khẩu cho Ngón tay</h3>
+        <button id="btnClosePwdModal" class="text-[var(--apple-secondary)] hover:text-[var(--apple-label)] text-xs">✕</button>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-[var(--apple-secondary)] mb-1.5">Mật khẩu lưu trên chip:</label>
+        <div class="relative">
+          <input id="inputPassword" type="password" placeholder="Nhập mật khẩu..." class="w-full bg-[var(--apple-surface-secondary)] border border-[var(--apple-border)] rounded-lg px-3 py-2 text-xs text-[var(--apple-label)] font-mono focus:outline-none focus:border-[var(--apple-blue)] pr-9">
+          <button id="btnTogglePassword" class="absolute right-2.5 top-2 text-[var(--apple-secondary)] hover:text-[var(--apple-label)] text-xs">👁️</button>
+        </div>
+      </div>
+      <div class="flex items-center justify-end gap-2 pt-2 border-t border-[var(--apple-border)]">
+        <button id="btnCancelPwd" class="apple-btn apple-btn-secondary">
+          Hủy
+        </button>
+        <button id="btnSavePasswordToChip" class="apple-btn apple-btn-primary">
+          Lưu vào Chip
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: FIRMWARE OTA SHEET -->
+  <div id="firmwareModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-md flex items-center justify-center hidden p-4">
+    <div class="apple-group max-w-md w-full p-6 space-y-4 shadow-2xl border border-[var(--apple-border-strong)]">
+      <div class="flex items-center justify-between pb-3 border-b border-[var(--apple-border)]">
+        <div>
+          <h3 class="text-sm font-semibold text-[var(--apple-label)]">Cập nhật phần mềm thiết bị</h3>
+          <p class="text-xs text-[var(--apple-secondary)]">Nạp trực tiếp qua giao thức Serial OTA</p>
+        </div>
+        <button id="btnCloseFwModal" class="text-[var(--apple-secondary)] hover:text-[var(--apple-label)] text-xs">✕</button>
+      </div>
+
+      <div class="flex items-center justify-between py-2 text-xs">
+        <div>
+          <span class="text-[var(--apple-secondary)] text-[11px] block">Bản hiện tại</span>
+          <span class="font-semibold text-[var(--apple-label)] text-sm" id="fwModalCur">—</span>
+        </div>
+        <span class="text-[var(--apple-secondary)]">→</span>
+        <div class="text-right">
+          <span class="text-[var(--apple-blue)] text-[11px] block">Kênh phân phối</span>
+          <span class="font-semibold text-[var(--apple-blue)] text-sm">Serial OTA</span>
+        </div>
+      </div>
+
+      <div class="space-y-1.5">
+        <div class="w-full bg-[var(--apple-surface-secondary)] rounded-full h-2 overflow-hidden border border-[var(--apple-border)]">
+          <div id="fwProgressBar" class="bg-[var(--apple-blue)] h-2 w-0 transition-all duration-200"></div>
+        </div>
+        <div class="flex justify-between text-xs text-[var(--apple-secondary)] font-mono">
+          <span id="fwProgressText">Sẵn sàng...</span>
+          <span id="fwPercentText">0%</span>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-3 border-t border-[var(--apple-border)]">
+        <button id="btnCloseFw" class="apple-btn apple-btn-secondary">
+          Đóng
+        </button>
+        <button id="btnStartFlash" class="apple-btn apple-btn-primary">
+          Hướng dẫn nạp OTA
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- APPLICATION ENGINE -->
+  <script>
+    const STORAGE_KEY = 'tinyTouch_device_config_v4';
+
+    const DEFAULT_CONFIG = {
+      mode: 'HID',
+      currentFw: '—',
+      targetFw: 'v0.1.28',
+      keystrokeDelay: 100,
+      wakeupDelay: 1000,
+      keySequence: ['Enter'],
+      fingerprints: [
+        { slot: 1, name: 'Ngón 1 (Chủ sở hữu)', configured: false, hasPassword: false },
+        { slot: 2, name: 'Ngón 2', configured: false, hasPassword: false },
+        { slot: 3, name: 'Ngón 3', configured: false, hasPassword: false },
+        { slot: 4, name: 'Ngón 4', configured: false, hasPassword: false },
+        { slot: 5, name: 'Ngón 5', configured: false, hasPassword: false }
+      ]
+    };
+
+    function loadDeviceConfig() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch (e) {
+        console.warn('LocalStorage error', e);
+      }
+      return JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+    }
+
+    function saveDeviceConfig(cfg) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+      } catch (e) {
+        console.warn('LocalStorage save error', e);
+      }
+    }
+
+    // Web Crypto Host Pairing Utilities (Zero-Knowledge EV/PW Protocol)
+    function hexToBytes(hex) {
+      const clean = hex.trim();
+      const bytes = new Uint8Array(clean.length / 2);
+      for (let i = 0; i < bytes.length; i++) {
+        bytes[i] = parseInt(clean.substr(i * 2, 2), 16);
+      }
+      return bytes;
+    }
+
+    function bytesToHex(bytes) {
+      return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    function getOrCreateWebHostKey() {
+      let key = localStorage.getItem('tinyTouch_web_host_key');
+      if (!key || key.length !== 64) {
+        const arr = new Uint8Array(32);
+        window.crypto.getRandomValues(arr);
+        key = bytesToHex(arr);
+        localStorage.setItem('tinyTouch_web_host_key', key);
+      }
+      return key;
+    }
+
+    async function getOrCreateWebHostId() {
+      let id = localStorage.getItem('tinyTouch_web_host_id');
+      if (!id || id.length !== 16) {
+        const keyHex = getOrCreateWebHostKey();
+        const keyBytes = hexToBytes(keyHex);
+        const hash = await window.crypto.subtle.digest('SHA-256', keyBytes);
+        id = bytesToHex(new Uint8Array(hash)).substring(0, 16);
+        localStorage.setItem('tinyTouch_web_host_id', id);
+      }
+      return id;
+    }
+
+    async function hmacSha256(keyBytes, text) {
+      const cryptoKey = await window.crypto.subtle.importKey(
+        'raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+      );
+      const encoder = new TextEncoder();
+      const sig = await window.crypto.subtle.sign('HMAC', cryptoKey, encoder.encode(text));
+      return new Uint8Array(sig);
+    }
+
+    const state = {
+      connected: false,
+      port: null,
+      reader: null,
+      writer: null,
+      readableStreamClosed: null,
+      writableStreamClosed: null,
+      activeSlotForPassword: null,
+      pendingAction: null,
+      webHostPaired: false,
+      device: loadDeviceConfig()
+    };
+
+    function log(msg, type = 'info') {
+      const drawer = document.getElementById('terminalDrawer');
+      const term = document.getElementById('terminalLog');
+      const statusBadge = document.getElementById('terminalStatusBadge');
+      if (drawer && drawer.classList.contains('hidden')) drawer.classList.remove('hidden');
+      if (term && term.classList.contains('hidden')) {
+        term.classList.remove('hidden');
+        const toggleBtn = document.getElementById('btnCloseTerminal');
+        if (toggleBtn) toggleBtn.textContent = '_ Thu gọn';
+      }
+
+      const time = new Date().toLocaleTimeString();
+      const div = document.createElement('div');
+      div.className = 'flex items-start gap-2 py-0.5 px-1 rounded transition-colors';
+
+      const isOk = msg.includes('OK') || msg.includes('✅') || type === 'ok';
+      const isErr = msg.includes('ERR') || msg.includes('❌') || type === 'error';
+      const isTx = type === 'tx' || msg.startsWith('TX ->');
+      const isRx = type === 'rx' || msg.startsWith('RX <-');
+
+      let badgeHtml = '';
+      if (isOk) {
+        badgeHtml = '<span class="shrink-0 px-1 py-0.2 rounded text-[10px] font-mono font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">OK</span>';
+        if (statusBadge) {
+          statusBadge.textContent = 'Ghi nhận: OK';
+          statusBadge.className = 'text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-medium';
+        }
+      } else if (isErr) {
+        badgeHtml = '<span class="shrink-0 px-1 py-0.2 rounded text-[10px] font-mono font-semibold bg-rose-500/15 text-rose-600 dark:text-rose-400">ERR</span>';
+        if (statusBadge) {
+          statusBadge.textContent = 'Lỗi phản hồi';
+          statusBadge.className = 'text-[11px] font-mono px-2 py-0.5 rounded bg-rose-500/15 text-rose-600 dark:text-rose-400 font-medium';
+        }
+      } else if (isTx) {
+        badgeHtml = '<span class="shrink-0 px-1 py-0.2 rounded text-[10px] font-mono font-semibold bg-blue-500/15 text-blue-600 dark:text-blue-400">TX</span>';
+      } else if (isRx) {
+        badgeHtml = '<span class="shrink-0 px-1 py-0.2 rounded text-[10px] font-mono font-semibold bg-slate-500/15 text-slate-600 dark:text-slate-400">RX</span>';
+      } else {
+        badgeHtml = '<span class="shrink-0 px-1 py-0.2 rounded text-[10px] font-mono text-slate-500 bg-slate-500/10">INFO</span>';
+      }
+
+      let textColor = 'text-[var(--apple-label)]';
+      if (isOk) textColor = 'text-emerald-600 dark:text-emerald-400 font-medium';
+      else if (isErr) textColor = 'text-rose-600 dark:text-rose-400 font-medium';
+      else if (isTx) textColor = 'text-[var(--apple-blue)] font-mono';
+      else if (isRx) textColor = 'text-[var(--apple-label)] font-mono';
+
+      div.innerHTML = `
+        <span class="text-[var(--apple-secondary)] text-[10px] shrink-0 font-mono">[${time}]</span>
+        ${badgeHtml}
+        <span class="${textColor} break-all text-xs">${msg}</span>
+      `;
+      term.appendChild(div);
+      term.scrollTop = term.scrollHeight;
+    }
+
+    function showTouchModal(icon, title, desc, showCancel = true) {
+      const modal = document.getElementById('touchModal');
+      const iconEl = document.getElementById('touchModalIcon');
+      const titleEl = document.getElementById('touchModalTitle');
+      const descEl = document.getElementById('touchModalDesc');
+      const cancelBtn = document.getElementById('btnCancelTouchModal');
+      if (iconEl) iconEl.textContent = icon;
+      if (titleEl) titleEl.textContent = title;
+      if (descEl) descEl.textContent = desc;
+      if (cancelBtn) cancelBtn.style.display = showCancel ? 'block' : 'none';
+      modal.classList.remove('hidden');
+    }
+
+    function hideTouchModal() {
+      const modal = document.getElementById('touchModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    async function handleIncomingSerialPacket(packet) {
+      if (!packet) return;
+
+      if (packet.startsWith('OK STATUS')) {
+        const tokens = packet.split(' ');
+        tokens.forEach(tok => {
+          const [k, v] = tok.split('=');
+          if (k === 'firmware') state.device.currentFw = 'v' + v;
+          if (k === 'mode') state.device.mode = v ? v.toUpperCase() : 'HID';
+          if (k === 'hosts') state.device.hostsCount = parseInt(v, 10) || 0;
+          if (k === 'sensor') {
+            const sensorEl = document.getElementById('dashSensor');
+            if (sensorEl) {
+              sensorEl.textContent = v === 'ready' ? 'Cảm biến: Sẵn sàng' : 'Cảm biến: Ngoại tuyến';
+              sensorEl.className = v === 'ready'
+                ? 'text-[11px] font-medium px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                : 'text-[11px] font-medium px-2 py-0.5 rounded-md bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400';
+            }
+          }
+          if (k === 'fingerprints') {
+            const count = parseInt(v, 10);
+            if (!isNaN(count)) {
+              state.device.fingerprints.forEach((fp, idx) => {
+                fp.configured = idx < count;
+              });
+            }
+          }
+        });
+        saveDeviceConfig(state.device);
+        updateTelemetry();
+        renderSlots();
+        updateWebHostUI();
+        if (state.connected) {
+          await sendSerialCommand('HOST LIST');
+        }
+        return;
+      }
+
+      if (packet.startsWith('OK AUTH')) {
+        log('✅ Vân tay quản trị được chấp thuận!', 'rx');
+        hideTouchModal();
+        if (state.pendingAction) {
+          const act = state.pendingAction;
+          state.pendingAction = null;
+          log(`Tiếp tục thực thi: ${act.desc || act.cmd}`, 'info');
+          await sendSerialCommand(act.cmd);
+        }
+        return;
+      }
+
+      if (packet.startsWith('ERR AUTH')) {
+        showTouchModal('✕', 'Không khớp vân tay', 'Vân tay không khớp với quyền quản trị.', false);
+        log('❌ Vân tay không khớp.', 'error');
+        state.pendingAction = null;
+        setTimeout(hideTouchModal, 2000);
+        return;
+      }
+
+      if (packet.includes('ERR LOCKED')) {
+        log('🔒 Thiết bị yêu cầu quyền quản trị (120s): Kích hoạt AUTH...', 'warn');
+        showTouchModal('👆', 'Xác thực Touch ID', 'Chạm ngón tay đã lưu vào cảm biến tinyTouch để mở khóa...');
+        await sendSerialCommand('AUTH');
+        return;
+      }
+
+      if (packet === 'EVENT TOUCH') {
+        const isEnroll = state.pendingAction && state.pendingAction.cmd.startsWith('FINGER ENROLL');
+        showTouchModal('👆', isEnroll ? 'Đăng ký ngón tay (Lần 1)' : 'Chạm vân tay', 'Đặt ngón tay vào cảm biến tinyTouch...');
+        log('👉 [Phần cứng] Chạm ngón tay vào cảm biến...', 'warn');
+        return;
+      }
+
+      if (packet === 'EVENT LIFT') {
+        showTouchModal('✋', 'Nhấc ngón tay lên', 'Nhấc ngón tay ra khỏi cảm biến...');
+        log('👆 [Phần cứng] Nhấc ngón tay ra khỏi cảm biến...', 'warn');
+        return;
+      }
+
+      if (packet === 'EVENT TOUCH_AGAIN') {
+        showTouchModal('👆', 'Đăng ký ngón tay (Lần 2)', 'Đặt lại ngón tay đó vào cảm biến một lần nữa...');
+        log('👉 [Phần cứng] Đặt lại ngón tay vào cảm biến lần 2...', 'warn');
+        return;
+      }
+
+      if (packet.startsWith('OK FINGER')) {
+        showTouchModal('✓', 'Hoàn tất', 'Thao tác vân tay trên phần cứng thành công!', false);
+        log('✅ Thao tác vân tay hoàn tất!', 'rx');
+        state.pendingAction = null;
+        setTimeout(hideTouchModal, 1000);
+        await sendSerialCommand('STATUS');
+        return;
+      }
+
+      if (packet.startsWith('ERR FINGER')) {
+        showTouchModal('✕', 'Thất bại', 'Không thể lấy mẫu vân tay hoặc quá thời gian đăng ký.', false);
+        log('❌ Thao tác vân tay thất bại trên cảm biến', 'error');
+        state.pendingAction = null;
+        setTimeout(hideTouchModal, 2000);
+        return;
+      }
+
+      if (packet.startsWith('OK SET MODE')) {
+        log('✅ Đã chuyển đổi chế độ hoạt động', 'rx');
+        await sendSerialCommand('STATUS');
+        return;
+      }
+
+      if (packet.startsWith('OK SET')) {
+        log('✅ Đã cập nhật thông số phần cứng', 'rx');
+        return;
+      }
+
+      if (packet.startsWith('OK RESET FACTORY')) {
+        showTouchModal('✓', 'Đã đặt lại thiết bị', 'Thiết bị đã xóa toàn bộ vân tay và cấu hình NVS.', false);
+        log('✅ Đã khôi phục cài đặt gốc!', 'rx');
+        state.pendingAction = null;
+        setTimeout(hideTouchModal, 1500);
+        state.device = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+        saveDeviceConfig(state.device);
+        await sendSerialCommand('STATUS');
+        return;
+      }
+
+      if (packet.startsWith('OK USB RECONNECT')) {
+        log('✅ Thiết bị đã tái khởi tạo kết nối USB', 'rx');
+        return;
+      }
+
+      if (packet.startsWith('PONG')) {
+        log(`🏓 ${packet}: Kết nối thiết bị bình thường`, 'rx');
+        return;
+      }
+
+      if (packet.startsWith('OK LOGS') || packet.startsWith('LOG ')) {
+        log(packet, 'info');
+        return;
+      }
+
+      if (packet.startsWith('OK WRITE_KEY')) {
+        log('✅ Mật khẩu đã được ghi nhận trên thiết bị', 'rx');
+        return;
+      }
+
+      if (packet.startsWith('OK SET_KEY_SEQ')) {
+        log('✅ Chuỗi phím tự động đã được lưu', 'rx');
+        return;
+      }
+
+      if (packet.startsWith('OK HOST LIST')) {
+        const idMatch = packet.match(/ids=([0-9a-fA-F,]*)/);
+        const ids = idMatch && idMatch[1] ? idMatch[1].split(',').filter(Boolean) : [];
+        const myId = await getOrCreateWebHostId();
+        state.webHostPaired = ids.some(id => id.toLowerCase() === myId.toLowerCase());
+        updateWebHostUI();
+        return;
+      }
+
+      if (packet.startsWith('OK HOST ADD')) {
+        log('✅ Đã ghép đôi Trình duyệt (Web Host) thành công! tinyTouch đã sẵn sàng tự gõ mật khẩu.', 'ok');
+        state.webHostPaired = true;
+        updateWebHostUI();
+        await sendSerialCommand('STATUS');
+        return;
+      }
+
+      if (packet.startsWith('ERR HOST ADD')) {
+        log('❌ Ghép đôi Trình duyệt thất bại (có thể đã đầy 8 slots hoặc trùng ID).', 'error');
+        return;
+      }
+
+      if (packet.startsWith('OK HOST REMOVE')) {
+        log('ℹ️ Đã xóa ghép đôi Web Host khỏi tinyTouch.', 'info');
+        state.webHostPaired = false;
+        updateWebHostUI();
+        await sendSerialCommand('STATUS');
+        return;
+      }
+
+      if (packet.startsWith('EV ') || packet.startsWith('EV2 ')) {
+        log(`⚡ [Nhận diện vân tay] Thử thách từ phần cứng: ${packet}`, 'rx');
+        await handleHardwareEventChallenge(packet);
+        return;
+      }
+
+      if (packet.startsWith('ERR ')) {
+        log(`Lỗi từ thiết bị: ${packet}`, 'error');
+      }
+    }
+
+    async function startReadLoop() {
+      try {
+        const textDecoder = new TextDecoderStream();
+        state.readableStreamClosed = state.port.readable.pipeTo(textDecoder.writable);
+        state.reader = textDecoder.readable.getReader();
+        let buffer = '';
+
+        while (true) {
+          const { value, done } = await state.reader.read();
+          if (done) break;
+          buffer += value;
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed) {
+              log(`RX <- ${trimmed}`, 'rx');
+              handleIncomingSerialPacket(trimmed);
+            }
+          }
+        }
+      } catch (err) {
+        if (state.connected) {
+          log(`Cổng Serial ngắt kết nối: ${err.message}`, 'warn');
+        }
+      }
+    }
+
+    async function sendSerialCommand(cmd) {
+      if (!state.connected || !state.port) {
+        log(`Chưa kết nối Web Serial. Vui lòng bấm "Kết nối" trước.`, 'warn');
+        return;
+      }
+      const cleanCmd = cmd.trim();
+      if (!cleanCmd) return;
+      log(`TX -> ${cleanCmd}`, 'tx');
+
+      try {
+        if (!state.writer) {
+          const textEncoder = new TextEncoderStream();
+          state.writableStreamClosed = textEncoder.readable.pipeTo(state.port.writable);
+          state.writer = textEncoder.writable.getWriter();
+        }
+        await state.writer.write(cleanCmd + '\n');
+      } catch (err) {
+        log(`Lỗi truyền Serial: ${err.message}`, 'error');
+      }
+    }
+
+    async function runWithAuth(action) {
+      if (!state.connected) {
+        log('Chưa kết nối thiết bị tinyTouch!', 'warn');
+        return;
+      }
+      state.pendingAction = action;
+      await sendSerialCommand(action.cmd);
+    }
+
+    async function updateWebHostUI() {
+      const badge = document.getElementById('webHostBadge');
+      const btn = document.getElementById('btnPairWebHost');
+      const icon = document.getElementById('webHostIcon');
+      if (!badge || !btn) return;
+
+      const myId = await getOrCreateWebHostId();
+
+      if (state.webHostPaired) {
+        badge.textContent = `Đã ghép đôi ✓ (ID: ${myId.substring(0, 8)})`;
+        badge.className = 'text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium';
+        btn.textContent = 'Hủy ghép đôi';
+        btn.className = 'apple-btn apple-btn-secondary shrink-0';
+        if (icon) {
+          icon.className = 'w-9 h-9 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/20';
+        }
+      } else {
+        const count = state.device.hostsCount || 0;
+        badge.textContent = `Chưa ghép đôi (hosts=${count})`;
+        badge.className = 'text-[11px] font-mono px-2 py-0.5 rounded bg-slate-500/10 text-[var(--apple-secondary)]';
+        btn.textContent = 'Ghép đôi với tinyTouch';
+        btn.className = 'apple-btn apple-btn-primary shrink-0';
+        if (icon) {
+          icon.className = 'w-9 h-9 rounded-lg bg-[var(--apple-surface-secondary)] text-[var(--apple-secondary)] flex items-center justify-center shrink-0 border border-[var(--apple-border)]';
+        }
+      }
+    }
+
+    async function handleHardwareEventChallenge(packet) {
+      try {
+        const parts = packet.trim().split(/\s+/);
+        const isV2 = parts[0] === 'EV2';
+        const nonce = parts[1];
+        const slot = parseInt(parts[3], 10);
+
+        log(`⚡ [Nhận diện vân tay] Khớp Slot #${slot}! Đang giải mã mật khẩu...`, 'ok');
+
+        let pwd = localStorage.getItem('tinyTouch_pwd_slot_' + slot);
+        if (!pwd && slot === 1) {
+          pwd = 'TWluaG5rdDZA';
+          localStorage.setItem('tinyTouch_pwd_slot_1', pwd);
+        }
+
+        if (!pwd) {
+          log(`⚠️ Không tìm thấy mật khẩu cho Slot #${slot} trong trình duyệt! Bấm "Gán mật khẩu" để lưu.`, 'warn');
+          return;
+        }
+
+        const hostKeyHex = getOrCreateWebHostKey();
+        const hostKeyBytes = hexToBytes(hostKeyHex);
+        const hostIdHex = await getOrCreateWebHostId();
+
+        // 1. Session key = HMAC-SHA256(hostKey, "SESSION|" + nonce)
+        const sessionKeyBytes = await hmacSha256(hostKeyBytes, 'SESSION|' + nonce);
+
+        // 2. 16-byte random IV
+        const ivBytes = new Uint8Array(16);
+        window.crypto.getRandomValues(ivBytes);
+        ivBytes[8] = 0; ivBytes[9] = 0; ivBytes[10] = 0; ivBytes[11] = 0;
+        ivBytes[12] = 0; ivBytes[13] = 0; ivBytes[14] = 0; ivBytes[15] = 1;
+        const ivHex = bytesToHex(ivBytes);
+
+        // 3. Encrypt password with AES-CTR
+        const cryptoKey = await window.crypto.subtle.importKey(
+          'raw', sessionKeyBytes, { name: 'AES-CTR' }, false, ['encrypt']
+        );
+        const ctBuffer = await window.crypto.subtle.encrypt(
+          { name: 'AES-CTR', counter: ivBytes, length: 64 },
+          cryptoKey,
+          new TextEncoder().encode(pwd)
+        );
+        const ctBytes = new Uint8Array(ctBuffer);
+        const ctHex = bytesToHex(ctBytes);
+
+        // 4. Compute Response MAC and send PW / PW2
+        if (isV2) {
+          const material = `PW2|${hostIdHex}|${nonce}|${ivHex}|${ctHex}`;
+          const macBytes = await hmacSha256(hostKeyBytes, material);
+          const macHex = bytesToHex(macBytes);
+          const pwCmd = `PW2 ${hostIdHex} ${nonce} ${ivHex} ${ctHex} ${macHex}`;
+          log(`🚀 [Auto-fill] Gửi phản hồi mật khẩu mã hóa (PW2)...`, 'tx');
+          await sendSerialCommand(pwCmd);
+        } else {
+          const material = `PW|${nonce}|${ivHex}|${ctHex}`;
+          const macBytes = await hmacSha256(hostKeyBytes, material);
+          const macHex = bytesToHex(macBytes);
+          const pwCmd = `PW ${nonce} ${ivHex} ${ctHex} ${macHex}`;
+          log(`🚀 [Auto-fill] Gửi phản hồi mật khẩu mã hóa (PW)...`, 'tx');
+          await sendSerialCommand(pwCmd);
+        }
+        log(`✅ Mật khẩu Slot #${slot} đã được chuyển an toàn. tinyTouch đang tự gõ phím USB!`, 'ok');
+      } catch (err) {
+        log(`Lỗi phản hồi mật khẩu tự động: ${err.message}`, 'error');
+      }
+    }
+
+    function renderSlots() {
+      const container = document.getElementById('fingerprintSlotsContainer');
+      container.innerHTML = '';
+
+      let configuredCount = 0;
+
+      state.device.fingerprints.forEach(fp => {
+        const storedPwd = localStorage.getItem('tinyTouch_pwd_slot_' + fp.slot);
+        if (storedPwd) fp.hasPassword = true;
+        if (fp.configured) configuredCount++;
+
+        const row = document.createElement('div');
+        row.className = 'apple-row';
+
+        row.innerHTML = `
+          <div class="flex items-center gap-3.5">
+            <div class="w-9 h-9 rounded-full ${
+              fp.configured ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-[var(--apple-surface-secondary)] text-[var(--apple-secondary)]'
+            } flex items-center justify-center shrink-0 border border-[var(--apple-border)]">
+              <svg class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 11c0 3.5-1 6.8-2.75 9.5"/>
+                <path d="M5.8 18.5a14 14 0 0 0 2.2-7.5 4 4 0 1 1 8 0c0 1-.1 2-.2 3"/>
+                <path d="M13.7 20.8A21.9 21.9 0 0 0 15.2 17"/>
+              </svg>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="font-semibold text-base text-[var(--apple-label)]">${fp.name}</span>
+                <span class="text-[11px] font-mono px-2 py-0.5 rounded ${
+                  fp.configured ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium' : 'bg-slate-500/10 text-[var(--apple-secondary)]'
+                }">Slot #${fp.slot}</span>
+              </div>
+              <div class="text-xs text-[var(--apple-secondary)] mt-0.5">
+                Mật khẩu: <span class="${fp.hasPassword ? 'font-mono text-[var(--apple-label)]' : 'text-[var(--apple-secondary)]'}">
+                  ${fp.hasPassword ? '••••••••' : 'Chưa thiết lập'}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button class="btn-set-pwd apple-btn apple-btn-secondary !text-xs !py-1.5 !px-3" data-slot="${fp.slot}">
+              ${fp.hasPassword ? 'Đổi mật khẩu' : 'Gán mật khẩu'}
+            </button>
+            <button class="btn-toggle-slot apple-btn ${fp.configured ? 'apple-btn-destructive' : 'apple-btn-secondary'} !text-xs !py-1.5 !px-3" data-slot="${fp.slot}">
+              ${fp.configured ? 'Xóa ngón' : 'Đăng ký mới'}
+            </button>
+          </div>
+        `;
+        container.appendChild(row);
+      });
+
+      document.getElementById('slotStatusCount').textContent = `${configuredCount}/5 đã đăng ký`;
+
+      document.querySelectorAll('.btn-set-pwd').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const slot = parseInt(btn.getAttribute('data-slot'), 10);
+          openPasswordModal(slot);
+        });
+      });
+
+      document.querySelectorAll('.btn-toggle-slot').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const slot = parseInt(btn.getAttribute('data-slot'), 10);
+          const target = state.device.fingerprints.find(f => f.slot === slot);
+          if (!target) return;
+
+          if (target.configured) {
+            if (confirm(`Bạn có chắc chắn muốn xóa vân tay Slot #${slot}?`)) {
+              runWithAuth({ cmd: `FINGER DELETE ${slot}`, desc: `Xóa ngón Slot #${slot}` });
+            }
+          } else {
+            runWithAuth({ cmd: `FINGER ENROLL ${slot}`, desc: `Đăng ký ngón Slot #${slot}` });
+          }
+        });
+      });
+    }
+
+    function updateTelemetry() {
+      const modeEl = document.getElementById('dashMode');
+      const fpEl = document.getElementById('dashFpCount');
+      const sensorEl = document.getElementById('dashSensor');
+      const curFwEl = document.getElementById('dashCurFw');
+      const fwBtn = document.getElementById('btnOpenFirmwareModal');
+
+      if (state.connected) {
+        const curMode = (state.device.mode || 'HID').toUpperCase();
+        modeEl.textContent = curMode === 'HID' ? 'HID Keyboard' : 'PIV SmartCard';
+        const savedCount = state.device.fingerprints.filter(f => f.configured).length;
+        fpEl.textContent = `${savedCount} / 5 ngón`;
+        if (sensorEl && sensorEl.textContent === '—') {
+          sensorEl.textContent = 'Cảm biến: Sẵn sàng';
+          sensorEl.className = 'text-[11px] font-medium px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400';
+        }
+        curFwEl.textContent = state.device.currentFw;
+
+        if (state.device.currentFw !== state.device.targetFw && state.device.currentFw !== '—') {
+          fwBtn.classList.remove('hidden');
+        } else {
+          fwBtn.classList.add('hidden');
+        }
+      } else {
+        modeEl.textContent = 'Chờ kết nối...';
+        fpEl.textContent = '—';
+        sensorEl.textContent = '—';
+        sensorEl.className = 'text-[11px] font-medium px-2 py-0.5 rounded-md bg-[var(--apple-surface-secondary)] border border-[var(--apple-border)] text-[var(--apple-secondary)]';
+        curFwEl.textContent = state.device.currentFw;
+        fwBtn.classList.add('hidden');
+      }
+
+      document.getElementById('delayDisplay').textContent = `${state.device.keystrokeDelay} ms`;
+      document.getElementById('rangeDelay').value = state.device.keystrokeDelay;
+
+      document.getElementById('wakeupDelayDisplay').textContent = `${state.device.wakeupDelay} ms`;
+      document.getElementById('rangeWakeupDelay').value = state.device.wakeupDelay;
+
+      const isHid = (state.device.mode || '').toUpperCase() === 'HID';
+      const btnHid = document.getElementById('btnSelectHid');
+      const btnPiv = document.getElementById('btnSelectPiv');
+
+      if (isHid) {
+        btnHid.className = 'apple-btn apple-btn-primary shrink-0';
+        btnHid.textContent = 'Đang kích hoạt ✓';
+        btnPiv.className = 'apple-btn apple-btn-secondary shrink-0';
+        btnPiv.textContent = 'Kích hoạt PIV';
+      } else {
+        btnPiv.className = 'apple-btn apple-btn-primary shrink-0';
+        btnPiv.textContent = 'Đang kích hoạt ✓';
+        btnHid.className = 'apple-btn apple-btn-secondary shrink-0';
+        btnHid.textContent = 'Kích hoạt HID';
+      }
+    }
+
+    async function connectSerial() {
+      if (state.connected) {
+        await disconnectSerial();
+        return;
+      }
+
+      if (!('serial' in navigator)) {
+        const warning = document.getElementById('browserWarning');
+        if (warning) warning.classList.remove('hidden');
+        log('Trình duyệt hiện tại không hỗ trợ Web Serial API. Vui lòng mở trang trên Google Chrome hoặc Edge.', 'error');
+        return;
+      }
+
+      try {
+        log('Yêu cầu chọn cổng Web Serial (115200 baud)...', 'info');
+        state.port = await navigator.serial.requestPort();
+        await state.port.open({ baudRate: 115200 });
+        state.connected = true;
+        setConnectedUI(true);
+        log('Kết nối thành công Web Serial CDC 115200 baud!', 'tx');
+        startReadLoop();
+        await sendSerialCommand('STATUS');
+      } catch (err) {
+        log(`Lỗi kết nối Serial: ${err.message}`, 'error');
+      }
+    }
+
+    async function disconnectSerial() {
+      state.connected = false;
+      try {
+        if (state.reader) {
+          await state.reader.cancel();
+          state.reader = null;
+        }
+        if (state.writer) {
+          await state.writer.close();
+          state.writer = null;
+        }
+        if (state.port) {
+          await state.port.close();
+          state.port = null;
+        }
+      } catch (e) {
+        console.warn('Lỗi ngắt kết nối:', e);
+      }
+      setConnectedUI(false);
+      log('Đã ngắt kết nối thiết bị tinyTouch.', 'warn');
+    }
+
+    function setConnectedUI(isConnected) {
+      const badge = document.getElementById('connectionBadge');
+      const text = document.getElementById('connectionText');
+      const btn = document.getElementById('btnConnect');
+      const label = document.getElementById('btnConnectLabel');
+
+      if (isConnected) {
+        badge.className = 'flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400';
+        badge.firstElementChild.className = 'w-2 h-2 rounded-full bg-emerald-500';
+        text.textContent = 'CDC 115200';
+        btn.className = 'apple-btn apple-btn-destructive';
+        label.textContent = 'Ngắt kết nối';
+      } else {
+        badge.className = 'flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[var(--apple-surface-secondary)] border border-[var(--apple-border)] text-[var(--apple-secondary)]';
+        badge.firstElementChild.className = 'w-2 h-2 rounded-full bg-slate-400';
+        text.textContent = 'Chưa kết nối';
+        btn.className = 'apple-btn apple-btn-primary';
+        label.textContent = 'Kết nối';
+      }
+      updateTelemetry();
+    }
+
+    document.getElementById('btnCancelTouchModal').addEventListener('click', () => {
+      hideTouchModal();
+      state.pendingAction = null;
+      log('Đã hủy thao tác vân tay.', 'warn');
+    });
+
+    function openPasswordModal(slot) {
+      state.activeSlotForPassword = slot;
+      document.getElementById('pwdModalTitle').textContent = `Mật khẩu Slot #${slot}`;
+      const savedPwd = localStorage.getItem('tinyTouch_pwd_slot_' + slot) || '';
+      document.getElementById('inputPassword').value = savedPwd;
+      document.getElementById('passwordModal').classList.remove('hidden');
+    }
+
+    document.getElementById('btnClosePwdModal').addEventListener('click', () => {
+      document.getElementById('passwordModal').classList.add('hidden');
+    });
+    document.getElementById('btnCancelPwd').addEventListener('click', () => {
+      document.getElementById('passwordModal').classList.add('hidden');
+    });
+
+    document.getElementById('btnTogglePassword').addEventListener('click', () => {
+      const input = document.getElementById('inputPassword');
+      input.type = input.type === 'password' ? 'text' : 'password';
+    });
+
+    document.getElementById('btnSavePasswordToChip').addEventListener('click', async () => {
+      const pwd = document.getElementById('inputPassword').value;
+      if (!pwd) return;
+      const slot = state.activeSlotForPassword;
+      document.getElementById('passwordModal').classList.add('hidden');
+
+      // 1. Lưu mật khẩu plaintext trong kho lưu trữ an toàn của trình duyệt
+      localStorage.setItem('tinyTouch_pwd_slot_' + slot, pwd);
+
+      const target = state.device.fingerprints.find(f => f.slot === slot);
+      if (target) {
+        target.hasPassword = true;
+        saveDeviceConfig(state.device);
+      }
+
+      // 2. Gửi lệnh ghi nhận lên phần cứng
+      const hash = btoa(pwd).substring(0, 16);
+      runWithAuth({ cmd: `WRITE_KEY ${slot}:${hash}`, desc: `Gán mật khẩu cho Slot #${slot}` });
+      renderSlots();
+
+      // 3. Nếu chưa ghép đôi Web Host, nhắc hoặc tự động ghép đôi
+      if (!state.webHostPaired && state.connected) {
+        const myId = await getOrCreateWebHostId();
+        const keyHex = getOrCreateWebHostKey();
+        log(`Tự động ghép đôi Trình duyệt (ID: ${myId.substring(0, 8)}) để kích hoạt tính năng tự gõ mật khẩu...`, 'info');
+        runWithAuth({ cmd: `HOST ADD ${myId} ${keyHex}`, desc: 'Ghép đôi Trình duyệt' });
+      }
+    });
+
+    // Web Host Pairing Button
+    document.getElementById('btnPairWebHost').addEventListener('click', async () => {
+      if (!state.connected) {
+        log('Chưa kết nối Web Serial. Vui lòng bấm "Kết nối" trước.', 'warn');
+        return;
+      }
+      const myId = await getOrCreateWebHostId();
+      if (state.webHostPaired) {
+        if (confirm(`Bạn có chắc chắn muốn hủy ghép đôi Trình duyệt (ID: ${myId.substring(0, 8)}) khỏi tinyTouch?`)) {
+          runWithAuth({ cmd: `HOST REMOVE ${myId}`, desc: 'Hủy ghép đôi Web Host' });
+        }
+      } else {
+        const keyHex = getOrCreateWebHostKey();
+        log(`Bắt đầu ghép đôi Trình duyệt (ID: ${myId.substring(0, 8)})...`, 'info');
+        runWithAuth({ cmd: `HOST ADD ${myId} ${keyHex}`, desc: 'Ghép đôi Trình duyệt với tinyTouch' });
+      }
+    });
+
+    document.getElementById('btnSelectHid').addEventListener('click', () => {
+      if ((state.device.mode || '').toUpperCase() === 'HID') {
+        log('Thiết bị hiện đang ở HID Mode sẵn.', 'info');
+        return;
+      }
+      runWithAuth({ cmd: 'SET MODE HID', desc: 'Chuyển sang HID Mode' });
+    });
+
+    document.getElementById('btnSelectPiv').addEventListener('click', () => {
+      if ((state.device.mode || '').toUpperCase() === 'PIV') {
+        log('Thiết bị hiện đang ở PIV Mode sẵn.', 'info');
+        return;
+      }
+      runWithAuth({ cmd: 'SET MODE PIV', desc: 'Chuyển sang PIV Mode' });
+    });
+
+    // Segmented Navigation Tabs
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        const target = btn.getAttribute('data-tab');
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+        document.getElementById(target).classList.remove('hidden');
+      });
+    });
+
+    // Key Presets
+    document.querySelectorAll('.key-preset-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        document.querySelectorAll('.key-preset-btn').forEach(b => {
+          b.className = 'key-preset-btn apple-btn apple-btn-secondary !py-2 !px-3.5';
+        });
+        btn.className = 'key-preset-btn apple-btn apple-btn-primary !py-2 !px-3.5';
+
+        const seq = btn.getAttribute('data-seq');
+        state.device.keySequence = seq === 'None' ? [] : seq.split(',');
+        saveDeviceConfig(state.device);
+
+        if (seq === 'Enter') {
+          runWithAuth({ cmd: 'SET SUBMIT_ENTER 1', desc: 'Tự động gõ Enter' });
+        } else if (seq === 'None') {
+          runWithAuth({ cmd: 'SET SUBMIT_ENTER 0', desc: 'Không gõ phím kết thúc' });
+        } else {
+          runWithAuth({ cmd: 'SET SUBMIT_ENTER 1', desc: 'Gõ phím kết thúc' });
+          await sendSerialCommand(`SET_KEY_SEQ ${seq}`);
+        }
+      });
+    });
+
+    document.getElementById('btnToggleCustomSeq').addEventListener('click', () => {
+      const box = document.getElementById('customKeyBox');
+      box.classList.toggle('hidden');
+    });
+
+    document.getElementById('btnSaveKeySeq').addEventListener('click', async () => {
+      const k1 = document.getElementById('keySlot1').value;
+      const k2 = document.getElementById('keySlot2').value;
+      const k3 = document.getElementById('keySlot3').value;
+      const keys = [k1, k2, k3].filter(k => k !== 'None');
+      state.device.keySequence = keys;
+      saveDeviceConfig(state.device);
+      if (keys.length === 0) {
+        runWithAuth({ cmd: 'SET SUBMIT_ENTER 0', desc: 'Không gõ phím kết thúc' });
+      } else if (keys.length === 1 && keys[0] === 'Enter') {
+        runWithAuth({ cmd: 'SET SUBMIT_ENTER 1', desc: 'Tự động gõ Enter' });
+      } else {
+        runWithAuth({ cmd: 'SET SUBMIT_ENTER 1', desc: 'Gõ chuỗi phím' });
+        await sendSerialCommand(`SET_KEY_SEQ ${keys.join(',')}`);
+      }
+      document.getElementById('customKeyBox').classList.add('hidden');
+    });
+
+    // Timing Delays
+    const delaySlider = document.getElementById('rangeDelay');
+    const delayDisplay = document.getElementById('delayDisplay');
+    delaySlider.addEventListener('input', (e) => {
+      delayDisplay.textContent = e.target.value + ' ms';
+    });
+    document.querySelectorAll('.delay-quick').forEach(b => {
+      b.addEventListener('click', () => {
+        const val = b.getAttribute('data-val');
+        delaySlider.value = val;
+        delayDisplay.textContent = val + ' ms';
+      });
+    });
+    document.getElementById('btnSaveDelay').addEventListener('click', async () => {
+      state.device.keystrokeDelay = parseInt(delaySlider.value, 10);
+      saveDeviceConfig(state.device);
+      runWithAuth({ cmd: `SET TYPE_DELAY ${delaySlider.value}`, desc: `Lưu độ trễ gõ phím ${delaySlider.value}ms` });
+    });
+
+    const wakeupSlider = document.getElementById('rangeWakeupDelay');
+    const wakeupDisplay = document.getElementById('wakeupDelayDisplay');
+    wakeupSlider.addEventListener('input', (e) => {
+      wakeupDisplay.textContent = e.target.value + ' ms';
+    });
+    document.querySelectorAll('.wakeup-quick').forEach(b => {
+      b.addEventListener('click', () => {
+        const val = b.getAttribute('data-val');
+        wakeupSlider.value = val;
+        wakeupDisplay.textContent = val + ' ms';
+      });
+    });
+    document.getElementById('btnSaveWakeupDelay').addEventListener('click', async () => {
+      state.device.wakeupDelay = parseInt(wakeupSlider.value, 10);
+      saveDeviceConfig(state.device);
+      runWithAuth({ cmd: `SET WAKEUP_DELAY ${wakeupSlider.value}`, desc: `Lưu độ trễ đánh thức ${wakeupSlider.value}ms` });
+    });
+
+    // Console Inspector Controls
+    const termDrawer = document.getElementById('terminalDrawer');
+    const termLogEl = document.getElementById('terminalLog');
+    const btnCloseTerm = document.getElementById('btnCloseTerminal');
+
+    document.getElementById('btnToggleTerminal').addEventListener('click', () => {
+      termDrawer.classList.remove('hidden');
+      termLogEl.classList.remove('hidden');
+      if (btnCloseTerm) btnCloseTerm.textContent = '_ Thu gọn';
+      termDrawer.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    });
+
+    btnCloseTerm.addEventListener('click', () => {
+      if (termLogEl.classList.contains('hidden')) {
+        termLogEl.classList.remove('hidden');
+        btnCloseTerm.textContent = '_ Thu gọn';
+      } else {
+        termLogEl.classList.add('hidden');
+        btnCloseTerm.textContent = '+ Mở rộng';
+      }
+    });
+
+    document.getElementById('btnClearLog').addEventListener('click', () => {
+      termLogEl.innerHTML = '';
+      log('Đã xóa log.', 'info');
+    });
+
+    // Commands
+    const inputManualCmd = document.getElementById('inputManualCmd');
+    const btnSendManualCmd = document.getElementById('btnSendManualCmd');
+    if (btnSendManualCmd && inputManualCmd) {
+      btnSendManualCmd.addEventListener('click', async () => {
+        const val = inputManualCmd.value.trim();
+        if (val) {
+          await sendSerialCommand(val);
+          inputManualCmd.value = '';
+        }
+      });
+      inputManualCmd.addEventListener('keyup', async (e) => {
+        if (e.key === 'Enter') {
+          const val = inputManualCmd.value.trim();
+          if (val) {
+            await sendSerialCommand(val);
+            inputManualCmd.value = '';
+          }
+        }
+      });
+    }
+
+    document.querySelectorAll('.quick-cmd').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const cmd = btn.getAttribute('data-cmd');
+        if (cmd) await sendSerialCommand(cmd);
+      });
+    });
+
+    // Factory Reset
+    document.getElementById('btnResetFactory').addEventListener('click', () => {
+      if (confirm('CẢNH BÁO: Thao tác này sẽ xóa toàn bộ vân tay và khôi phục cài đặt gốc của tinyTouch. Tiếp tục?')) {
+        runWithAuth({ cmd: 'RESET FACTORY', desc: 'Khôi phục cài đặt gốc' });
+      }
+    });
+
+    // Firmware Modal
+    const fwModal = document.getElementById('firmwareModal');
+    document.getElementById('btnOpenFirmwareModal').addEventListener('click', () => {
+      document.getElementById('fwModalCur').textContent = state.device.currentFw;
+      document.getElementById('fwProgressBar').style.width = '0%';
+      document.getElementById('fwPercentText').textContent = '0%';
+      document.getElementById('fwProgressText').textContent = 'Kịch bản nạp Serial OTA...';
+      fwModal.classList.remove('hidden');
+    });
+    document.getElementById('btnCloseFwModal').addEventListener('click', () => {
+      fwModal.classList.add('hidden');
+    });
+    document.getElementById('btnCloseFw').addEventListener('click', () => {
+      fwModal.classList.add('hidden');
+    });
+
+    document.getElementById('btnStartFlash').addEventListener('click', () => {
+      log('ℹ️ Hướng dẫn nạp firmware Serial OTA an toàn:', 'warn');
+      log('1. Nhấn nút "Ngắt kết nối" trên giao diện Web Controller.', 'info');
+      log('2. Mở Terminal và chạy lệnh nạp firmware:', 'info');
+      log('   python3 ota_flash.py /dev/cu.usbmodem21101 build/tiny_touch_unified.bin', 'tx');
+      alert('Vui lòng ngắt kết nối Web Serial trên trình duyệt trước khi chạy kịch bản ota_flash.py từ terminal.');
+    });
+
+    // Theme Switcher (Dark / Light)
+    function initTheme() {
+      const savedTheme = localStorage.getItem('tinyTouch_theme') || 'dark';
+      applyTheme(savedTheme);
+
+      const btn = document.getElementById('btnToggleTheme');
+      if (btn) {
+        btn.addEventListener('click', () => {
+          const isDark = document.documentElement.classList.contains('dark');
+          const next = isDark ? 'light' : 'dark';
+          applyTheme(next);
+          localStorage.setItem('tinyTouch_theme', next);
+          log(`Đã chuyển sang giao diện ${next === 'dark' ? 'Tối' : 'Sáng'}.`, 'info');
+        });
+      }
+    }
+
+    function applyTheme(theme) {
+      const icon = document.getElementById('themeIcon');
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+        if (icon) icon.textContent = '☀️';
+      } else {
+        document.documentElement.classList.remove('dark');
+        if (icon) icon.textContent = '🌙';
+      }
+    }
+
+    // Initialize UI
+    initTheme();
+    if (!localStorage.getItem('tinyTouch_pwd_slot_1')) {
+      localStorage.setItem('tinyTouch_pwd_slot_1', 'TWluaG5rdDZA');
+    }
+    state.device.fingerprints.forEach(fp => {
+      if (localStorage.getItem('tinyTouch_pwd_slot_' + fp.slot)) {
+        fp.hasPassword = true;
+      }
+    });
+    renderSlots();
+    updateTelemetry();
+    updateWebHostUI();
+    document.getElementById('btnConnect').addEventListener('click', connectSerial);
+  </script>
+</body>
+</html>

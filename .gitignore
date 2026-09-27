@@ -1,0 +1,35 @@
+# Firmware build outputs & dependencies
+firmware/build/
+firmware/managed_components/
+firmware/.cache/
+firmware/sdkconfig.old
+firmware/build-local/
+firmware/build-recovery/
+build/
+dist/
+
+# Security, keys and credentials
+*.pem
+!*.example.pem
+secrets.h
+*.key
+.env*
+
+# macOS and OS artifacts
+.DS_Store
+._*
+__MACOSX/
+*.swp
+*~
+
+# IDE & Editor files
+.vscode/
+.idea/
+.claude/
+.impeccable/
+.uv-cache/
+
+# Python cache
+__pycache__/
+*.py[cod]
+.venv/
