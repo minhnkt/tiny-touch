@@ -975,30 +975,26 @@
     <div class="apple-group max-w-sm w-full p-6 text-center space-y-4 shadow-2xl border border-[var(--apple-border-strong)]">
       <div id="touchModalIcon" class="w-14 h-14 rounded-full bg-[var(--apple-surface-secondary)] border-2 border-[var(--apple-blue)] flex items-center justify-center mx-auto shadow-sm relative overflow-hidden">
         <style>
-          @keyframes pulse-ring {
-            0% { r: 14; opacity: 0.8; }
-            100% { r: 24; opacity: 0; }
+          @keyframes scan-dash {
+            0% { stroke-dashoffset: 0; }
+            100% { stroke-dashoffset: -100; }
           }
           @keyframes fingerprint-glow {
             0%, 100% { filter: drop-shadow(0 0 2px rgba(0, 122, 255, 0.3)); }
-            50% { filter: drop-shadow(0 0 8px rgba(0, 122, 255, 0.7)); }
+            50% { filter: drop-shadow(0 0 10px rgba(0, 122, 255, 0.8)); }
           }
-          .fp-pulse-1 { animation: pulse-ring 1.5s ease-out infinite; }
-          .fp-pulse-2 { animation: pulse-ring 1.5s ease-out infinite 0.5s; }
+          .fp-scan { animation: scan-dash 3s linear infinite; }
           .fp-icon { animation: fingerprint-glow 2s ease-in-out infinite; }
         </style>
-        <svg class="w-8 h-8 absolute" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1">
-          <!-- Pulse rings -->
-          <circle cx="24" cy="24" r="14" class="fp-pulse-1" stroke="var(--apple-blue)" stroke-width="0.8"/>
-          <circle cx="24" cy="24" r="14" class="fp-pulse-2" stroke="var(--apple-blue)" stroke-width="0.8"/>
-        </svg>
-        <svg class="w-8 h-8 text-[var(--apple-blue)] fp-icon relative z-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
-          <!-- Fingerprint ridges -->
-          <path d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2z" opacity="0.15"/>
-          <path d="M7 9c0 1.5 1 2.5 5 2.5s5-1 5-2.5"/>
-          <path d="M6.5 12c0 1.8 1.5 3 5.5 3s5.5-1.2 5.5-3"/>
-          <path d="M6 15c0 2 2 3.5 6 3.5s6-1.5 6-3.5"/>
-          <circle cx="12" cy="12" r="2" fill="currentColor" opacity="0.8"/>
+        <svg class="w-8 h-8 text-[var(--apple-blue)] fp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+          <!-- Center dot -->
+          <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+
+          <!-- Concentric fingerprint circles with scan animation -->
+          <circle cx="12" cy="12" r="3.5" class="fp-scan" stroke-dasharray="22,2"/>
+          <circle cx="12" cy="12" r="5.5" class="fp-scan" stroke-dasharray="35,3" style="animation-delay: 0.3s"/>
+          <circle cx="12" cy="12" r="7.5" class="fp-scan" stroke-dasharray="47,4" style="animation-delay: 0.6s"/>
+          <circle cx="12" cy="12" r="9" class="fp-scan" stroke-dasharray="57,5" style="animation-delay: 0.9s"/>
         </svg>
       </div>
       <div>
@@ -1370,30 +1366,25 @@
 
       if (iconEl) {
         if (icon === '👆') {
-          // Apple Touch ID: fingerprint + pulse rings
+          // Apple Touch ID: concentric circles with scanning animation
           iconEl.innerHTML = `<style>
-            @keyframes pulse-ring {
-              0% { r: 14; opacity: 0.8; }
-              100% { r: 24; opacity: 0; }
+            @keyframes scan-dash {
+              0% { stroke-dashoffset: 0; }
+              100% { stroke-dashoffset: -100; }
             }
             @keyframes fingerprint-glow {
               0%, 100% { filter: drop-shadow(0 0 2px rgba(0, 122, 255, 0.3)); }
-              50% { filter: drop-shadow(0 0 8px rgba(0, 122, 255, 0.7)); }
+              50% { filter: drop-shadow(0 0 10px rgba(0, 122, 255, 0.8)); }
             }
-            .fp-pulse-1 { animation: pulse-ring 1.5s ease-out infinite; }
-            .fp-pulse-2 { animation: pulse-ring 1.5s ease-out infinite 0.5s; }
+            .fp-scan { animation: scan-dash 3s linear infinite; }
             .fp-icon { animation: fingerprint-glow 2s ease-in-out infinite; }
           </style>
-          <svg class="w-8 h-8 absolute" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1">
-            <circle cx="24" cy="24" r="14" class="fp-pulse-1" stroke="var(--apple-blue)" stroke-width="0.8"/>
-            <circle cx="24" cy="24" r="14" class="fp-pulse-2" stroke="var(--apple-blue)" stroke-width="0.8"/>
-          </svg>
-          <svg class="w-8 h-8 text-[var(--apple-blue)] fp-icon relative z-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2z" opacity="0.15"/>
-            <path d="M7 9c0 1.5 1 2.5 5 2.5s5-1 5-2.5"/>
-            <path d="M6.5 12c0 1.8 1.5 3 5.5 3s5.5-1.2 5.5-3"/>
-            <path d="M6 15c0 2 2 3.5 6 3.5s6-1.5 6-3.5"/>
-            <circle cx="12" cy="12" r="2" fill="currentColor" opacity="0.8"/>
+          <svg class="w-8 h-8 text-[var(--apple-blue)] fp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+            <circle cx="12" cy="12" r="3.5" class="fp-scan" stroke-dasharray="22,2"/>
+            <circle cx="12" cy="12" r="5.5" class="fp-scan" stroke-dasharray="35,3" style="animation-delay: 0.3s"/>
+            <circle cx="12" cy="12" r="7.5" class="fp-scan" stroke-dasharray="47,4" style="animation-delay: 0.6s"/>
+            <circle cx="12" cy="12" r="9" class="fp-scan" stroke-dasharray="57,5" style="animation-delay: 0.9s"/>
           </svg>`;
         } else {
           iconEl.textContent = icon;
