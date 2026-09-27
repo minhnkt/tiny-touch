@@ -36,3 +36,12 @@ if(NOT (IDF_VERSION_MAJOR EQUAL 5 AND IDF_VERSION_MINOR EQUAL 3))
     "Install or select ESP-IDF 5.3 before building.")
 endif()
 project(tiny_touch_unified)
+
+# Post-build: copy firmware with timestamp
+string(TIMESTAMP BUILD_TIMESTAMP "%Y%m%d-%H%M%S")
+add_custom_command(TARGET app POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy
+    "${CMAKE_BINARY_DIR}/tiny_touch_unified.bin"
+    "${CMAKE_BINARY_DIR}/tiny_touch_unified_${BUILD_TIMESTAMP}.bin"
+  COMMENT "Copying firmware with timestamp: tiny_touch_unified_${BUILD_TIMESTAMP}.bin"
+)

@@ -10,7 +10,27 @@
 
 #define CONFIG_NAMESPACE "tt6"
 #define CONFIG_KEY "config"
-#define CONFIG_VERSION 6
+#define CONFIG_VERSION 7
+
+#define DEFAULT_HID_LED_START 3 // Cyan
+#define DEFAULT_HID_LED_END   1 // Blue
+#define DEFAULT_PIV_LED_START 6 // Yellow
+#define DEFAULT_PIV_LED_END   4 // Red
+
+typedef struct {
+  uint8_t version;
+  uint8_t mode;
+  uint8_t fingerprint_profile_views;
+  uint8_t submit_enter;
+  uint16_t typing_delay_ms;
+  uint16_t touch_cooldown_ms;
+  uint8_t hid_host_count;
+  uint8_t hid_led_start;
+  uint8_t hid_led_end;
+  uint8_t piv_led_start;
+  uint8_t piv_led_end;
+  device_hid_host_t hid_hosts[DEVICE_CONFIG_MAX_HID_HOSTS];
+} stored_config_t;
 
 typedef struct {
   uint8_t version;
@@ -21,7 +41,7 @@ typedef struct {
   uint16_t touch_cooldown_ms;
   uint8_t hid_host_count;
   device_hid_host_t hid_hosts[DEVICE_CONFIG_MAX_HID_HOSTS];
-} stored_config_t;
+} stored_config_v6_t;
 
 static stored_config_t config;
 static SemaphoreHandle_t config_mutex;
@@ -34,8 +54,12 @@ static void defaults(stored_config_t *value) {
   value->version = CONFIG_VERSION;
   value->mode = DEVICE_MODE_PIV;
   value->submit_enter = 1;
-  value->typing_delay_ms = 7;
+  value->typing_delay_ms = 20;
   value->touch_cooldown_ms = 800;
+  value->hid_led_start = DEFAULT_HID_LED_START;
+  value->hid_led_end = DEFAULT_HID_LED_END;
+  value->piv_led_start = DEFAULT_PIV_LED_START;
+  value->piv_led_end = DEFAULT_PIV_LED_END;
 }
 
 static void derive_key_id(const uint8_t key[32], uint8_t id[DEVICE_CONFIG_HID_KEY_ID_SIZE]) {
@@ -50,7 +74,11 @@ static bool valid(const stored_config_t *value) {
       value->fingerprint_profile_views > 5 || value->submit_enter > 1 ||
       value->typing_delay_ms < 1 || value->typing_delay_ms > 100 ||
       value->touch_cooldown_ms < 100 || value->touch_cooldown_ms > 5000 ||
-      value->hid_host_count > DEVICE_CONFIG_MAX_HID_HOSTS) return false;
+      value->hid_host_count > DEVICE_CONFIG_MAX_HID_HOSTS ||
+      value->hid_led_start < 1 || value->hid_led_start > 7 ||
+      value->hid_led_end < 1 || value->hid_led_end > 7 ||
+      value->piv_led_start < 1 || value->piv_led_start > 7 ||
+      value->piv_led_end < 1 || value->piv_led_end > 7) return false;
   for (size_t i = 0; i < value->hid_host_count; i++) {
     uint8_t id[DEVICE_CONFIG_HID_KEY_ID_SIZE];
     derive_key_id(value->hid_hosts[i].key, id);
@@ -85,6 +113,22 @@ void device_config_init(void) {
   bool opened = nvs_open(CONFIG_NAMESPACE, NVS_READONLY, &handle) == ESP_OK;
   bool loaded_ok = opened && nvs_get_blob(handle, CONFIG_KEY, &loaded, &length) == ESP_OK &&
                    length == sizeof(loaded) && valid(&loaded);
+  if (!loaded_ok && opened) {
+    stored_config_v6_t v6 = {0};
+    size_t len_v6 = sizeof(v6);
+    if (nvs_get_blob(handle, CONFIG_KEY, &v6, &len_v6) == ESP_OK &&
+        len_v6 == sizeof(v6) && v6.version == 6 && v6.mode <= DEVICE_MODE_HID) {
+      defaults(&loaded);
+      loaded.mode = v6.mode;
+      loaded.fingerprint_profile_views = v6.fingerprint_profile_views;
+      loaded.submit_enter = v6.submit_enter;
+      loaded.typing_delay_ms = v6.typing_delay_ms;
+      loaded.touch_cooldown_ms = v6.touch_cooldown_ms;
+      loaded.hid_host_count = v6.hid_host_count;
+      memcpy(loaded.hid_hosts, v6.hid_hosts, sizeof(loaded.hid_hosts));
+      if (valid(&loaded)) loaded_ok = true;
+    }
+  }
   if (opened) nvs_close(handle);
   lock();
   if (loaded_ok) config = loaded;
@@ -93,6 +137,7 @@ void device_config_init(void) {
 }
 
 device_mode_t device_config_mode(void) {
+  if (!config_mutex) return DEVICE_MODE_PIV;
   lock(); device_mode_t value = (device_mode_t)config.mode; unlock(); return value;
 }
 
@@ -158,6 +203,42 @@ bool device_config_submit_enter(void) { lock(); bool value = config.submit_enter
 bool device_config_set_submit_enter(bool value) { lock(); stored_config_t c = config; c.submit_enter = value; bool ok = replace_locked(&c); unlock(); return ok; }
 uint16_t device_config_touch_cooldown_ms(void) { lock(); uint16_t value = config.touch_cooldown_ms; unlock(); return value; }
 bool device_config_set_touch_cooldown_ms(uint16_t value) { lock(); stored_config_t c = config; c.touch_cooldown_ms = value; bool ok = replace_locked(&c); unlock(); return ok; }
+
+void device_config_hid_led(uint8_t *start, uint8_t *end) {
+  lock();
+  if (start) *start = config.hid_led_start ? config.hid_led_start : DEFAULT_HID_LED_START;
+  if (end) *end = config.hid_led_end ? config.hid_led_end : DEFAULT_HID_LED_END;
+  unlock();
+}
+
+bool device_config_set_hid_led(uint8_t start, uint8_t end) {
+  if (start < 1 || start > 7 || end < 1 || end > 7) return false;
+  lock();
+  stored_config_t c = config;
+  c.hid_led_start = start;
+  c.hid_led_end = end;
+  bool ok = replace_locked(&c);
+  unlock();
+  return ok;
+}
+
+void device_config_piv_led(uint8_t *start, uint8_t *end) {
+  lock();
+  if (start) *start = config.piv_led_start ? config.piv_led_start : DEFAULT_PIV_LED_START;
+  if (end) *end = config.piv_led_end ? config.piv_led_end : DEFAULT_PIV_LED_END;
+  unlock();
+}
+
+bool device_config_set_piv_led(uint8_t start, uint8_t end) {
+  if (start < 1 || start > 7 || end < 1 || end > 7) return false;
+  lock();
+  stored_config_t c = config;
+  c.piv_led_start = start;
+  c.piv_led_end = end;
+  bool ok = replace_locked(&c);
+  unlock();
+  return ok;
+}
 
 bool device_config_factory_reset(void) {
   lock(); stored_config_t candidate; defaults(&candidate); bool ok = replace_locked(&candidate); unlock(); return ok;

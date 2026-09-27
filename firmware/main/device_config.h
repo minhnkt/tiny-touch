@@ -34,4 +34,8 @@ bool device_config_submit_enter(void);
 bool device_config_set_submit_enter(bool value);
 uint16_t device_config_touch_cooldown_ms(void);
 bool device_config_set_touch_cooldown_ms(uint16_t value);
+void device_config_hid_led(uint8_t *start, uint8_t *end);
+bool device_config_set_hid_led(uint8_t start, uint8_t end);
+void device_config_piv_led(uint8_t *start, uint8_t *end);
+bool device_config_set_piv_led(uint8_t start, uint8_t end);
 bool device_config_factory_reset(void);

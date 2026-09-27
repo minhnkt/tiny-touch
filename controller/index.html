@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>tinyTouch — Trình điều khiển bảo mật</title>
+  <title>tinyTouch - WebController</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2245%22 fill=%22%230071e3%22/><path d=%22M50 25 a25 25 0 0 1 25 25 a25 25 0 0 1 -25 25 a25 25 0 0 1 -25 -25%22 fill=%22none%22 stroke=%22white%22 stroke-width=%228%22 stroke-linecap=%22round%22/></svg>">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -193,6 +193,62 @@
       cursor: pointer;
       border: 0.5px solid rgba(0,0,0,0.06);
     }
+
+    /* Telegram-style Particle Spoiler Animation */
+    .telegram-spoiler {
+      position: relative;
+      display: inline-block;
+      cursor: pointer;
+      user-select: none;
+      transition: filter 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+                  transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+                  opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .telegram-spoiler.dissolve {
+      animation: telegramDissolve 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .telegram-spoiler.gather {
+      animation: telegramGather 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes telegramDissolve {
+      0% {
+        filter: blur(5px) contrast(180%);
+        transform: scale(0.9);
+        opacity: 0.2;
+        letter-spacing: 0.3em;
+      }
+      50% {
+        filter: blur(2.5px);
+        transform: scale(1.08);
+        opacity: 0.75;
+      }
+      100% {
+        filter: blur(0px);
+        transform: scale(1);
+        opacity: 1;
+        letter-spacing: 0.1em;
+      }
+    }
+    @keyframes telegramGather {
+      0% {
+        filter: blur(0px);
+        transform: scale(1);
+        opacity: 1;
+        letter-spacing: 0.1em;
+      }
+      50% {
+        filter: blur(3px) contrast(160%);
+        transform: scale(1.08);
+        opacity: 0.6;
+        letter-spacing: 0.25em;
+      }
+      100% {
+        filter: blur(0px);
+        transform: scale(1);
+        opacity: 1;
+        letter-spacing: 0.15em;
+      }
+    }
   </style>
 </head>
 <body class="min-h-screen flex flex-col font-sans">
@@ -213,7 +269,6 @@
         </div>
         <div class="flex items-center gap-2">
           <span class="font-semibold text-sm tracking-tight text-[var(--apple-label)]">tinyTouch</span>
-          <span class="text-xs text-[var(--apple-secondary)]">Khóa bảo mật sinh trắc học</span>
         </div>
       </div>
 
@@ -229,14 +284,6 @@
           <span class="w-2 h-2 rounded-full bg-slate-400"></span>
           <span id="connectionText">Chưa kết nối</span>
         </div>
-
-        <!-- Connect Action -->
-        <button id="btnConnect" class="apple-btn apple-btn-primary">
-          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-          <span id="btnConnectLabel">Kết nối</span>
-        </button>
       </div>
     </div>
   </header>
@@ -269,66 +316,79 @@
         <div>
           <h1 class="text-2xl sm:text-3xl font-bold text-[var(--apple-label)] tracking-tight">tinyTouch Hardware Key</h1>
           <p class="text-xs text-[var(--apple-secondary)] mt-1">Xác thực vân tay quang học & Tự động hóa bàn phím USB</p>
-          <div class="flex items-center gap-2 mt-3">
-            <span class="text-[11px] font-mono px-2.5 py-0.5 rounded-md bg-[var(--apple-surface-secondary)] border border-[var(--apple-border)] text-[var(--apple-secondary)]">ESP32-S3</span>
-            <span class="text-[11px] font-mono px-2.5 py-0.5 rounded-md bg-[var(--apple-surface-secondary)] border border-[var(--apple-border)] text-[var(--apple-secondary)]">115200 CDC</span>
-            <span id="dashSensor" class="text-[11px] font-medium px-2.5 py-0.5 rounded-md bg-[var(--apple-surface-secondary)] border border-[var(--apple-border)] text-[var(--apple-secondary)]">—</span>
-          </div>
         </div>
       </div>
 
-      <!-- Quick Metrics Summary -->
-      <div class="grid grid-cols-3 gap-6 sm:border-l sm:border-[var(--apple-border)] sm:pl-6 text-center sm:text-left w-full sm:w-auto">
-        <div>
-          <div class="text-[11px] font-medium text-[var(--apple-secondary)]">Chế độ</div>
-          <div id="dashMode" class="text-sm font-semibold text-[var(--apple-label)] mt-0.5">Chờ kết nối</div>
-          <span id="telemetryModeIcon" class="hidden">⌨️</span>
-        </div>
-        <div>
-          <div class="text-[11px] font-medium text-[var(--apple-secondary)]">Vân tay</div>
-          <div id="dashFpCount" class="text-sm font-semibold text-[var(--apple-label)] mt-0.5">—</div>
-        </div>
-        <div>
-          <div class="text-[11px] font-medium text-[var(--apple-secondary)]">Firmware</div>
-          <div class="flex items-center gap-1.5 mt-0.5">
-            <span id="dashCurFw" class="text-sm font-semibold text-[var(--apple-label)]">—</span>
-            <button id="btnOpenFirmwareModal" class="text-[11px] text-[var(--apple-blue)] hover:underline font-medium">Nâng cấp</button>
+      <!-- Quick Metrics Summary & Tags -->
+      <div class="flex flex-col gap-3 sm:border-l sm:border-[var(--apple-border)] sm:pl-6 w-full sm:w-auto">
+        <div class="grid grid-cols-3 gap-6 text-center sm:text-left">
+          <div>
+            <div class="text-[11px] font-medium text-[var(--apple-secondary)]">Chế độ</div>
+            <div id="dashMode" class="text-sm font-semibold text-[var(--apple-label)] mt-0.5">Chờ kết nối</div>
+            <span id="telemetryModeIcon" class="hidden">⌨️</span>
           </div>
+          <div>
+            <div class="text-[11px] font-medium text-[var(--apple-secondary)]">Vân tay</div>
+            <div id="dashFpCount" class="text-sm font-semibold text-[var(--apple-label)] mt-0.5">—</div>
+          </div>
+          <div>
+            <div class="text-[11px] font-medium text-[var(--apple-secondary)]">Firmware</div>
+            <div class="flex items-center gap-1.5 mt-0.5">
+              <span id="dashCurFw" class="text-sm font-semibold text-[var(--apple-label)]">—</span>
+              <button id="btnOpenFirmwareModal" class="text-[11px] text-[var(--apple-blue)] hover:underline font-medium">Nâng cấp</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tags moved below the metrics group -->
+        <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-[var(--apple-border)] justify-center sm:justify-start">
+          <span class="text-[11px] font-mono px-2.5 py-0.5 rounded-md bg-[var(--apple-surface-secondary)] border border-[var(--apple-border)] text-[var(--apple-secondary)]">ESP32-S3</span>
+          <span class="text-[11px] font-mono px-2.5 py-0.5 rounded-md bg-[var(--apple-surface-secondary)] border border-[var(--apple-border)] text-[var(--apple-secondary)]">115200 CDC</span>
+          <span id="dashSensor" class="text-[11px] font-medium px-2.5 py-0.5 rounded-md bg-[var(--apple-surface-secondary)] border border-[var(--apple-border)] text-[var(--apple-secondary)]">—</span>
         </div>
       </div>
     </div>
 
     <!-- APPLE-STYLE SEGMENTED NAVIGATION TABS -->
-    <div class="flex items-center justify-between">
+    <div class="flex flex-wrap items-center justify-between gap-3">
       <div class="apple-segmented-container">
         <button class="tab-btn apple-segmented-btn active" data-tab="tab-config">
-          Chế độ & Bàn phím
+          Mode
         </button>
         <button class="tab-btn apple-segmented-btn" data-tab="tab-fingerprints">
           Vân tay & Mật khẩu
         </button>
         <button class="tab-btn apple-segmented-btn" data-tab="tab-system">
-          Thời gian & Tinh chỉnh
+          Cài đặt
         </button>
       </div>
 
-      <!-- Console Inspector Quick Toggle -->
-      <button id="btnToggleTerminal" class="apple-btn apple-btn-secondary text-xs">
-        <svg class="w-3.5 h-3.5 text-[var(--apple-secondary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="4 17 10 11 4 5"></polyline>
-          <line x1="12" y1="19" x2="20" y2="19"></line>
-        </svg>
-        <span>Nhật ký Serial</span>
-        <span id="logBadge" class="w-1.5 h-1.5 rounded-full bg-[var(--apple-green)]"></span>
-      </button>
+      <div class="flex items-center gap-2">
+        <!-- Connect Action -->
+        <button id="btnConnect" class="apple-btn apple-btn-primary text-xs !py-1.5 !px-3">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          <span id="btnConnectLabel">Kết nối</span>
+        </button>
+
+        <!-- Console Inspector Quick Toggle -->
+        <button id="btnToggleTerminal" class="apple-btn apple-btn-secondary text-xs !py-1.5 !px-3">
+          <svg class="w-3.5 h-3.5 text-[var(--apple-secondary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="4 17 10 11 4 5"></polyline>
+            <line x1="12" y1="19" x2="20" y2="19"></line>
+          </svg>
+          <span>Serial Log</span>
+          <span id="logBadge" class="w-1.5 h-1.5 rounded-full bg-[var(--apple-green)]"></span>
+        </button>
+      </div>
     </div>
 
-    <!-- TAB 1: CHẾ ĐỘ & BÀN PHÍM (APPLE INSET GROUPED LIST) -->
+    <!-- TAB 1: MODE (APPLE INSET GROUPED LIST) -->
     <div id="tab-config" class="tab-content space-y-6">
 
-      <!-- Section: Chế độ hoạt động -->
+      <!-- Section: Chế độ hoạt động (Rows) -->
       <div>
-        <h2 class="text-sm font-semibold uppercase tracking-wider text-[var(--apple-secondary)] px-1 mb-2.5">Chế độ hoạt động</h2>
         <div class="apple-group">
           <!-- HID Option Row -->
           <div class="apple-row" id="cardHidMode">
@@ -346,7 +406,14 @@
                 </svg>
               </div>
               <div>
-                <div class="font-semibold text-base text-[var(--apple-label)]">HID Keyboard</div>
+                <div class="flex items-center gap-2">
+                  <span class="font-semibold text-base text-[var(--apple-label)]">HID Keyboard</span>
+                  <span id="badgeHidLedMode" class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full border border-[var(--apple-border)] bg-[var(--apple-surface-secondary)]" title="Màu LED Aura: Start → End">
+                    <span id="dotHidLedStart" class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
+                    <span class="text-[9px] text-[var(--apple-secondary)]">→</span>
+                    <span id="dotHidLedEnd" class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+                  </span>
+                </div>
                 <div id="cardHidDesc" class="text-xs text-[var(--apple-secondary)] mt-0.5">Tự động điền mật khẩu trực tiếp qua giao diện bàn phím chuẩn USB.</div>
               </div>
             </div>
@@ -364,7 +431,14 @@
                 </svg>
               </div>
               <div>
-                <div class="font-semibold text-base text-[var(--apple-label)]">PIV SmartCard</div>
+                <div class="flex items-center gap-2">
+                  <span class="font-semibold text-base text-[var(--apple-label)]">PIV SmartCard</span>
+                  <span id="badgePivLedMode" class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full border border-[var(--apple-border)] bg-[var(--apple-surface-secondary)]" title="Màu LED Aura: Start → End">
+                    <span id="dotPivLedStart" class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+                    <span class="text-[9px] text-[var(--apple-secondary)]">→</span>
+                    <span id="dotPivLedEnd" class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+                  </span>
+                </div>
                 <div id="cardPivDesc" class="text-xs text-[var(--apple-secondary)] mt-0.5">Nhận diện như Thẻ thông minh X.509 trên macOS / Windows để mở khóa máy tính.</div>
               </div>
             </div>
@@ -375,9 +449,12 @@
         </div>
       </div>
 
-      <!-- Section: Ghép đôi máy chủ / Trình duyệt (Web Host Pairing) -->
-      <div>
-        <h2 class="text-sm font-semibold uppercase tracking-wider text-[var(--apple-secondary)] px-1 mb-2.5">Ghép đôi máy chủ (Web Host Pairing)</h2>
+      <!-- Section: Ghép đôi máy chủ / Trình duyệt (Dành riêng cho Chế độ HID Keyboard) -->
+      <div id="sectionWebHost">
+        <div class="flex flex-wrap items-center justify-between gap-2 px-1 mb-2.5">
+          <h2 class="text-base sm:text-lg font-bold tracking-tight text-[var(--apple-label)]">Cấu hình cho (Web Host Pairing) HID Keyboard:</h2>
+          <span class="text-[11px] font-mono px-2.5 py-1 rounded-md bg-[var(--apple-blue)]/10 text-[var(--apple-blue)] font-medium">Thuộc nút: Kích hoạt HID</span>
+        </div>
         <div class="apple-group border-2 border-amber-500/60 dark:border-amber-400/50 bg-amber-500/[0.03] dark:bg-amber-500/[0.04] transition-all shadow-sm shadow-amber-500/10" id="cardWebHost">
           <div class="apple-row" id="rowWebHost">
             <div class="flex items-center gap-3.5">
@@ -391,7 +468,7 @@
               <div>
                 <div class="flex items-center gap-2">
                   <span class="font-semibold text-base text-[var(--apple-label)]">Trình duyệt Web này</span>
-                  <span id="webHostBadge" class="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-500/10 text-[var(--apple-secondary)]">Chưa ghép đôi (hosts=0)</span>
+                  <span id="webHostBadge" class="text-[11px] font-mono px-2.5 py-1 rounded-md bg-slate-500/10 text-[var(--apple-secondary)]">Chưa ghép đôi (hosts=0)</span>
                 </div>
                 <div id="webHostDesc" class="text-xs text-[var(--apple-secondary)] mt-0.5">
                   tinyTouch KHÔNG lưu mật khẩu trên chip ESP32. Bạn cần ghép đôi để trình duyệt xác thực và cấp mật khẩu tự động gõ khi chạm vân tay.
@@ -405,9 +482,114 @@
         </div>
       </div>
 
+      <!-- Section: Quản lý Thẻ thông minh PIV (Dành riêng cho Chế độ PIV SmartCard) -->
+      <div id="sectionPivSmartCard" class="hidden space-y-4">
+        <div>
+          <div class="flex flex-wrap items-center justify-between gap-2 px-1 mb-2.5">
+            <h2 class="text-base sm:text-lg font-bold tracking-tight text-[var(--apple-label)]">Cấu hình PIV SmartCard (USB CCID):</h2>
+            <span class="text-[11px] font-mono px-2.5 py-1 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-medium">Thuộc nút: Kích hoạt PIV</span>
+          </div>
+          <div class="apple-group p-5 space-y-4 border border-indigo-500/30 bg-indigo-500/[0.02]">
+            <div class="flex items-start gap-3.5">
+              <div class="w-10 h-10 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-500/20">
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                  <circle cx="12" cy="11" r="3"></circle>
+                </svg>
+              </div>
+              <div class="flex-1">
+                <div class="flex items-center gap-2">
+                  <span class="font-semibold text-base text-[var(--apple-label)]">Cơ chế xác thực không truyền mật khẩu</span>
+                  <span class="text-[11px] font-mono px-2.5 py-1 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-medium">NIST SP 800-73 (FIPS 201)</span>
+                </div>
+                <p class="text-xs text-[var(--apple-secondary)] mt-1.5 leading-relaxed">
+                  Ở chế độ này, tinyTouch đóng vai trò như một <strong>SmartCard phần cứng độc lập</strong> qua giao tiếp USB CCID tiêu chuẩn. Khóa bảo mật RSA 2048-bit nằm an toàn bên trong chip ESP32-S3 và không bao giờ xuất ra ngoài. Mọi tác vụ đăng nhập màn hình macOS/Windows, Terminal <code class="px-2 py-0.5 rounded bg-[var(--apple-surface-secondary)] text-[var(--apple-label)] font-mono text-[11px]">sudo</code> hoặc SSH đều yêu cầu <strong>chạm vân tay trực tiếp</strong> lên cảm biến để ký số.
+                </p>
+              </div>
+            </div>
+
+            <!-- SmartCard Specs & PIN Info -->
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-3 border-t border-[var(--apple-border)]">
+              <div>
+                <div class="text-[11px] uppercase tracking-wider text-[var(--apple-secondary)]">Mã PIN xác thực</div>
+                <div class="flex items-center gap-1.5 mt-1">
+                  <span id="pivPinDisplay" class="telegram-spoiler font-mono font-bold text-sm text-[var(--apple-label)] tracking-widest cursor-pointer px-3 py-1.5 rounded-lg bg-[var(--apple-surface-secondary)] border border-[var(--apple-border)]" title="Bấm để ẩn/hiện PIN">*****</span>
+                  <button id="btnTogglePivPin" type="button" class="apple-btn apple-btn-secondary !p-1.5 flex items-center justify-center text-[var(--apple-secondary)] hover:text-[var(--apple-label)]" title="Hiện mã PIN" aria-label="Hiện/Ẩn mã PIN">
+                    <svg id="pivPinEyeIcon" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                  </button>
+                  <button id="btnCopyPivPin" type="button" class="apple-btn apple-btn-secondary !p-1.5 flex items-center justify-center text-[var(--apple-secondary)] hover:text-[var(--apple-label)]" title="Sao chép mã PIN" aria-label="Sao chép mã PIN">
+                    <svg id="pivPinCopyIcon" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div>
+                <div class="text-[11px] uppercase tracking-wider text-[var(--apple-secondary)]">Tự động nhấn Enter</div>
+                <div class="flex items-center gap-2 mt-1.5">
+                  <button id="btnTogglePivSubmitEnter" type="button" class="apple-btn apple-btn-secondary !text-xs !py-1.5 !px-3 font-medium flex items-center gap-1.5">
+                    <span id="pivSubmitEnterDot" class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span id="pivSubmitEnterText">Bật (Mặc định)</span>
+                  </button>
+                </div>
+              </div>
+              <div>
+                <div class="text-[11px] uppercase tracking-wider text-[var(--apple-secondary)]">Khóa Slot 9A (Auth)</div>
+                <div id="pivKeyContainer" class="flex flex-wrap items-center gap-2 mt-1">
+                  <span id="pivKeyStatusBadge" class="font-mono text-xs px-2.5 py-1 rounded-md bg-slate-500/10 text-[var(--apple-secondary)] font-medium">Đang kiểm tra...</span>
+                  <button id="btnCreatePivKey" type="button" class="apple-btn apple-btn-primary !text-[11px] !py-1 !px-2.5 hidden">
+                    + Tạo khóa Slot 9A
+                  </button>
+                </div>
+              </div>
+              <div>
+                <div class="text-[11px] uppercase tracking-wider text-[var(--apple-secondary)]">Xác nhận sinh trắc</div>
+                <div class="font-medium text-xs text-emerald-600 dark:text-emerald-400 mt-1 flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  Bắt buộc chạm vân tay
+                </div>
+              </div>
+            </div>
+
+            <!-- Action Buttons & Quick Commands -->
+            <div class="space-y-2 pt-3 border-t border-[var(--apple-border)]">
+              <div class="text-xs font-semibold text-[var(--apple-label)]">Hướng dẫn ghép đôi nhanh trên macOS (Terminal):</div>
+              <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <div class="flex-1 bg-[var(--apple-surface-secondary)] rounded-lg px-3 py-2 font-mono text-[11px] text-[var(--apple-label)] truncate select-all">
+                  sudo sc_auth pair -u $(whoami)
+                </div>
+                <button id="btnCopyPairCmd" type="button" class="apple-btn apple-btn-secondary !text-xs !py-2 shrink-0">
+                  📋 Sao chép lệnh ghép đôi
+                </button>
+              </div>
+              <p class="text-[11px] text-[var(--apple-secondary)] leading-normal">
+                👉 Khi chạy lệnh trên, nhập mật khẩu máy Mac, sau đó nhập mã PIN SmartCard khi được yêu cầu.
+              </p>
+            </div>
+
+            <!-- Quick Action Toolbar -->
+            <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-[var(--apple-border)]">
+              <button id="btnPivAuthorize" type="button" class="apple-btn apple-btn-primary !text-xs !py-1.5 !px-3">
+                👆 Ủy quyền Touch ID (AUTH)
+              </button>
+              <button id="btnCopyListCmd" type="button" class="apple-btn apple-btn-secondary !text-xs !py-1.5 !px-3">
+                📋 Sao chép lệnh kiểm tra (sc_auth list)
+              </button>
+              <button id="btnRefreshPivStatus" type="button" class="apple-btn apple-btn-secondary !text-xs !py-1.5 !px-3">
+                🔄 Làm mới trạng thái
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Section: Phím tự động sau khi điền -->
       <div id="sectionKeySeq" class="hidden">
-        <h2 class="text-sm font-semibold uppercase tracking-wider text-[var(--apple-secondary)] px-1 mb-2.5">Phím kết thúc (HID Keyboard)</h2>
+        <h2 class="text-base sm:text-lg font-bold tracking-tight text-[var(--apple-label)] px-1 mb-2.5">Phím kết thúc (HID Keyboard)</h2>
         <div class="apple-group p-5 space-y-4">
           <div class="flex flex-wrap gap-2.5" id="keyPresetsContainer">
             <button class="key-preset-btn apple-btn apple-btn-secondary !py-2 !px-3.5" data-seq="Enter">
@@ -482,12 +664,17 @@
     <div id="tab-fingerprints" class="tab-content hidden space-y-6">
       <div class="flex items-center justify-between px-1">
         <div>
-          <h2 class="text-sm font-semibold uppercase tracking-wider text-[var(--apple-secondary)]">Vị trí vân tay</h2>
+          <h2 class="text-base sm:text-lg font-bold tracking-tight text-[var(--apple-label)]">Vị trí vân tay</h2>
           <p class="text-xs text-[var(--apple-secondary)] mt-1">Mỗi vân tay liên kết với một mật khẩu an toàn lưu trên vi điều khiển</p>
         </div>
-        <span id="slotStatusCount" class="text-xs font-mono font-medium text-[var(--apple-secondary)] px-2.5 py-1 rounded-md bg-[var(--apple-surface)] border border-[var(--apple-border)]">
-          0/5 đã đăng ký
-        </span>
+        <div class="flex items-center gap-2.5">
+          <span id="slotStatusCount" class="text-xs font-mono font-medium text-[var(--apple-secondary)] px-2.5 py-1 rounded-md bg-[var(--apple-surface)] border border-[var(--apple-border)]">
+            0/5 đã đăng ký
+          </span>
+          <button id="btnAddFingerprintSlot" class="apple-btn apple-btn-primary !text-xs !py-1.5 !px-3">
+            + Thêm vân tay
+          </button>
+        </div>
       </div>
 
       <!-- Inset Grouped List of Fingerprints -->
@@ -501,26 +688,39 @@
 
       <!-- Section: Timing Configurations -->
       <div>
-        <h2 class="text-sm font-semibold uppercase tracking-wider text-[var(--apple-secondary)] px-1 mb-2.5">Độ trễ & Đánh thức</h2>
         <div class="apple-group divide-y divide-[var(--apple-border)]">
           <!-- Keystroke Delay Row -->
           <div class="p-5 space-y-3.5">
             <div class="flex items-center justify-between">
               <div>
                 <div class="font-semibold text-base text-[var(--apple-label)]">Độ trễ giữa các ký tự (Keystroke Delay)</div>
-                <div class="text-xs text-[var(--apple-secondary)] mt-0.5">Khoảng nghỉ để hệ điều hành nhận diện trọn vẹn chuỗi phím HID</div>
+                <div class="text-xs text-[var(--apple-secondary)] mt-0.5">Khoảng nghỉ để hệ điều hành nhận diện trọn vẹn chuỗi phím HID (1–100ms)</div>
               </div>
-              <span id="delayDisplay" class="font-mono text-xs font-semibold text-[var(--apple-blue)] px-2.5 py-1 rounded bg-[var(--apple-surface-secondary)] border border-[var(--apple-border)]">100 ms</span>
+              <span id="delayDisplay" class="font-mono text-xs font-semibold text-[var(--apple-blue)] px-2.5 py-1 rounded bg-[var(--apple-surface-secondary)] border border-[var(--apple-border)]">20 ms</span>
             </div>
             <div class="flex items-center gap-4">
-              <input id="rangeDelay" type="range" min="0" max="1000" step="50" value="100" class="flex-1 cursor-pointer">
+              <input id="rangeDelay" type="range" min="1" max="100" step="1" value="20" class="flex-1 cursor-pointer">
               <button id="btnSaveDelay" class="apple-btn apple-btn-primary shrink-0">Lưu</button>
             </div>
             <div class="flex gap-2">
+              <button class="delay-quick apple-btn apple-btn-secondary !text-xs !py-1.5 !px-3" data-val="7">7ms (Tối thiểu)</button>
+              <button class="delay-quick apple-btn apple-btn-secondary !text-xs !py-1.5 !px-3" data-val="15">15ms</button>
+              <button class="delay-quick apple-btn apple-btn-secondary !text-xs !py-1.5 !px-3" data-val="20">20ms (Chuẩn macOS)</button>
               <button class="delay-quick apple-btn apple-btn-secondary !text-xs !py-1.5 !px-3" data-val="50">50ms</button>
-              <button class="delay-quick apple-btn apple-btn-secondary !text-xs !py-1.5 !px-3" data-val="100">100ms (Chuẩn)</button>
-              <button class="delay-quick apple-btn apple-btn-secondary !text-xs !py-1.5 !px-3" data-val="200">200ms</button>
-              <button class="delay-quick apple-btn apple-btn-secondary !text-xs !py-1.5 !px-3" data-val="500">500ms</button>
+            </div>
+          </div>
+
+          <!-- Auto-submit Enter Row -->
+          <div class="apple-row p-5">
+            <div>
+              <div class="font-semibold text-base text-[var(--apple-label)]">Tự động nhấn Enter (Submit Enter)</div>
+              <div class="text-xs text-[var(--apple-secondary)] mt-0.5">Tự động gửi phím Enter sau khi điền mã PIN (PIV SmartCard) hoặc Mật khẩu (HID Keyboard)</div>
+            </div>
+            <div class="flex items-center gap-3">
+              <button id="btnToggleSubmitEnter" type="button" class="apple-btn apple-btn-secondary !text-xs !py-1.5 !px-3 font-medium flex items-center gap-2">
+                <span id="submitEnterDot" class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span id="submitEnterLabel">Đang bật (Mặc định)</span>
+              </button>
             </div>
           </div>
 
@@ -529,7 +729,7 @@
             <div class="flex items-center justify-between">
               <div>
                 <div class="font-semibold text-base text-[var(--apple-label)]">Độ trễ đánh thức màn hình (Remote Wakeup)</div>
-                <div class="text-xs text-[var(--apple-secondary)] mt-0.5">Thời gian chờ màn hình sáng trước khi tự động gõ mật khẩu</div>
+                <div class="text-xs text-[var(--apple-secondary)] mt-0.5">Thời gian chờ màn hình sáng hoàn toàn trước khi tinyTouch tự động gõ phím</div>
               </div>
               <span id="wakeupDelayDisplay" class="font-mono text-xs font-semibold text-[var(--apple-blue)] px-2.5 py-1 rounded bg-[var(--apple-surface-secondary)] border border-[var(--apple-border)]">1000 ms</span>
             </div>
@@ -537,11 +737,125 @@
               <input id="rangeWakeupDelay" type="range" min="0" max="3000" step="100" value="1000" class="flex-1 cursor-pointer">
               <button id="btnSaveWakeupDelay" class="apple-btn apple-btn-primary shrink-0">Lưu</button>
             </div>
-            <div class="flex gap-2">
-              <button class="wakeup-quick apple-btn apple-btn-secondary !text-xs !py-1.5 !px-3" data-val="0">0ms</button>
-              <button class="wakeup-quick apple-btn apple-btn-secondary !text-xs !py-1.5 !px-3" data-val="500">500ms</button>
-              <button class="wakeup-quick apple-btn apple-btn-secondary !text-xs !py-1.5 !px-3" data-val="1000">1000ms (Chuẩn)</button>
-              <button class="wakeup-quick apple-btn apple-btn-secondary !text-xs !py-1.5 !px-3" data-val="1500">1500ms</button>
+            <div class="flex flex-wrap gap-2">
+              <button class="wakeup-quick apple-btn apple-btn-secondary !text-xs !py-1.5 !px-3" data-val="0">0ms (Tức thì)</button>
+              <button class="wakeup-quick apple-btn apple-btn-secondary !text-xs !py-1.5 !px-3" data-val="500">500ms (Nhanh)</button>
+              <button class="wakeup-quick apple-btn apple-btn-secondary !text-xs !py-1.5 !px-3" data-val="1000">1000ms (Mặc định macOS/Windows)</button>
+              <button class="wakeup-quick apple-btn apple-btn-secondary !text-xs !py-1.5 !px-3" data-val="1500">1500ms (Màn hình rời)</button>
+              <button class="wakeup-quick apple-btn apple-btn-secondary !text-xs !py-1.5 !px-3" data-val="2000">2000ms (Chậm)</button>
+            </div>
+            <div class="pt-3 border-t border-[var(--apple-border)] text-[11px] text-[var(--apple-secondary)] space-y-1.5 leading-relaxed">
+              <div class="font-medium text-[var(--apple-label)]">💡 Gợi ý cấu hình phù hợp với thiết bị của bạn:</div>
+              <ul class="list-disc pl-4 space-y-0.5">
+                <li><strong class="text-[var(--apple-label)]">0ms (Tức thì):</strong> Máy luôn bật hoặc không ở chế độ ngủ sâu.</li>
+                <li><strong class="text-[var(--apple-label)]">500ms (Nhanh):</strong> Laptop mở nắp thức dậy siêu tốc (MacBook Apple Silicon).</li>
+                <li><strong class="text-[var(--apple-label)]">1000ms (Mặc định macOS/Windows):</strong> Cấu hình chuẩn khuyến nghị cho hầu hết máy tính xách tay và máy để bàn.</li>
+                <li><strong class="text-[var(--apple-label)]">1500ms (Màn hình rời):</strong> Khi kết nối màn hình ngoài qua cổng HDMI / DisplayPort / Type-C cần thời gian nhận tín hiệu hiển thị.</li>
+                <li><strong class="text-[var(--apple-label)]">2000ms (Chậm):</strong> Màn hình độ phân giải cao hoặc qua Hub/Dock chuyển đổi có độ trễ bật nguồn lớn.</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Sensor LED Aura Breathing Palette Row -->
+          <div class="p-6 space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span id="titleAuraLedDot" class="w-3 h-3 rounded-full bg-gradient-to-tr from-cyan-400 to-blue-500 shadow-sm"></span>
+                  <h3 class="font-semibold text-lg text-[var(--apple-label)] tracking-tight">Màu đèn LED vòng cảm biến (Aura Breathing)</h3>
+                </div>
+                <p class="text-xs text-[var(--apple-secondary)] mt-1">Tùy chỉnh hiệu ứng chuyển màu thở giữa 2 sắc thái màu phần cứng khi thiết bị ở trạng thái chờ</p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-1">
+              <!-- HID Mode LED Palette -->
+              <div class="space-y-3.5">
+                <div class="flex items-center justify-between pb-2 border-b border-[var(--apple-border)]">
+                  <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
+                    <span class="text-xs font-semibold text-[var(--apple-label)] uppercase tracking-wide">Chế độ HID (Bàn phím)</span>
+                  </div>
+                  <div id="previewHidLedBox" class="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-[var(--apple-border)] bg-[var(--apple-surface-secondary)]">
+                    <span id="previewHidDotStart" class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
+                    <span class="text-[10px] text-[var(--apple-secondary)]">→</span>
+                    <span id="previewHidDotEnd" class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+                  </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <label class="block text-xs text-[var(--apple-secondary)] mb-1.5 font-medium">Màu bắt đầu (Start)</label>
+                    <select id="selectHidLedStart" class="w-full bg-[var(--apple-surface-secondary)] border border-[var(--apple-border)] rounded-lg px-3 py-2 text-xs text-[var(--apple-label)] font-medium focus:outline-none focus:border-[var(--apple-blue)]">
+                      <option value="1">1. Blue</option>
+                      <option value="2">2. Green</option>
+                      <option value="3" selected>3. Cyan</option>
+                      <option value="4">4. Red</option>
+                      <option value="5">5. Purple</option>
+                      <option value="6">6. Yellow</option>
+                      <option value="7">7. White</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-xs text-[var(--apple-secondary)] mb-1.5 font-medium">Màu kết thúc (End)</label>
+                    <select id="selectHidLedEnd" class="w-full bg-[var(--apple-surface-secondary)] border border-[var(--apple-border)] rounded-lg px-3 py-2 text-xs text-[var(--apple-label)] font-medium focus:outline-none focus:border-[var(--apple-blue)]">
+                      <option value="1" selected>1. Blue</option>
+                      <option value="2">2. Green</option>
+                      <option value="3">3. Cyan</option>
+                      <option value="4">4. Red</option>
+                      <option value="5">5. Purple</option>
+                      <option value="6">6. Yellow</option>
+                      <option value="7">7. White</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="pt-1 flex justify-end">
+                  <button id="btnSaveHidLed" class="apple-btn apple-btn-primary !text-xs !py-1.5 !px-3.5">Lưu màu HID</button>
+                </div>
+              </div>
+
+              <!-- PIV Mode LED Palette -->
+              <div class="space-y-3.5">
+                <div class="flex items-center justify-between pb-2 border-b border-[var(--apple-border)]">
+                  <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+                    <span class="text-xs font-semibold text-[var(--apple-label)] uppercase tracking-wide">Chế độ PIV (SmartCard)</span>
+                  </div>
+                  <div id="previewPivLedBox" class="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-[var(--apple-border)] bg-[var(--apple-surface-secondary)]">
+                    <span id="previewPivDotStart" class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+                    <span class="text-[10px] text-[var(--apple-secondary)]">→</span>
+                    <span id="previewPivDotEnd" class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+                  </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <label class="block text-xs text-[var(--apple-secondary)] mb-1.5 font-medium">Màu bắt đầu (Start)</label>
+                    <select id="selectPivLedStart" class="w-full bg-[var(--apple-surface-secondary)] border border-[var(--apple-border)] rounded-lg px-3 py-2 text-xs text-[var(--apple-label)] font-medium focus:outline-none focus:border-[var(--apple-blue)]">
+                      <option value="1">1. Blue</option>
+                      <option value="2">2. Green</option>
+                      <option value="3">3. Cyan</option>
+                      <option value="4">4. Red</option>
+                      <option value="5">5. Purple</option>
+                      <option value="6" selected>6. Yellow</option>
+                      <option value="7">7. White</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-xs text-[var(--apple-secondary)] mb-1.5 font-medium">Màu kết thúc (End)</label>
+                    <select id="selectPivLedEnd" class="w-full bg-[var(--apple-surface-secondary)] border border-[var(--apple-border)] rounded-lg px-3 py-2 text-xs text-[var(--apple-label)] font-medium focus:outline-none focus:border-[var(--apple-blue)]">
+                      <option value="1">1. Blue</option>
+                      <option value="2">2. Green</option>
+                      <option value="3">3. Cyan</option>
+                      <option value="4" selected>4. Red</option>
+                      <option value="5">5. Purple</option>
+                      <option value="6">6. Yellow</option>
+                      <option value="7">7. White</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="pt-1 flex justify-end">
+                  <button id="btnSavePivLed" class="apple-btn apple-btn-primary !text-xs !py-1.5 !px-3.5">Lưu màu PIV</button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -679,6 +993,28 @@
     </div>
   </div>
 
+  <!-- MODAL: RENAME FINGERPRINT SHEET -->
+  <div id="renameModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-md flex items-center justify-center hidden p-4">
+    <div class="apple-group max-w-sm w-full p-5 space-y-4 shadow-2xl border border-[var(--apple-border-strong)]">
+      <div class="flex items-center justify-between pb-3 border-b border-[var(--apple-border)]">
+        <h3 class="text-sm font-semibold text-[var(--apple-label)]" id="renameModalTitle">Đổi tên ngón tay</h3>
+        <button id="btnCloseRenameModal" class="text-[var(--apple-secondary)] hover:text-[var(--apple-label)] text-xs">✕</button>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-[var(--apple-secondary)] mb-1.5">Tên hiển thị mới:</label>
+        <input id="inputFpName" type="text" placeholder="Nhập tên ngón (vd: Ngón cái tay phải)..." class="w-full bg-[var(--apple-surface-secondary)] border border-[var(--apple-border)] rounded-lg px-3 py-2 text-xs text-[var(--apple-label)] focus:outline-none focus:border-[var(--apple-blue)]">
+      </div>
+      <div class="flex items-center justify-end gap-2 pt-2 border-t border-[var(--apple-border)]">
+        <button id="btnCancelRename" class="apple-btn apple-btn-secondary">
+          Hủy
+        </button>
+        <button id="btnSaveFpName" class="apple-btn apple-btn-primary">
+          Lưu tên
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL: FIRMWARE OTA SHEET -->
   <div id="firmwareModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-md flex items-center justify-center hidden p-4">
     <div class="apple-group max-w-md w-full p-6 space-y-4 shadow-2xl border border-[var(--apple-border-strong)]">
@@ -702,22 +1038,25 @@
         </div>
       </div>
 
-      <!-- File Picker -->
+      <!-- File Picker with Drag & Drop -->
       <div class="space-y-2">
         <label class="text-[11px] font-medium text-[var(--apple-secondary)] block">Tệp Firmware (.bin)</label>
         <input type="file" id="inputFwFile" accept=".bin" class="hidden">
-        <button id="btnChooseFwFile" type="button" class="w-full apple-btn apple-btn-secondary !justify-between !px-3.5 !py-2.5 text-left">
-          <div class="flex items-center gap-2 truncate">
-            <svg class="w-4 h-4 text-[var(--apple-secondary)] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="12" y1="18" x2="12" y2="12"></line>
-              <line x1="9" y1="15" x2="15" y2="15"></line>
-            </svg>
-            <span id="fwFileNamePrompt" class="text-xs truncate">Chọn tệp tiny_touch_unified.bin...</span>
-          </div>
-          <span class="text-xs text-[var(--apple-blue)] font-medium shrink-0">Duyệt tệp</span>
-        </button>
+        <div id="fwDropZone" class="w-full border-2 border-dashed border-[var(--apple-border)] rounded-lg p-4 text-center transition-colors cursor-pointer hover:border-[var(--apple-blue)]/50 hover:bg-[var(--apple-blue)]/5">
+          <button id="btnChooseFwFile" type="button" class="w-full apple-btn apple-btn-secondary !justify-between !px-3.5 !py-2.5 text-left">
+            <div class="flex items-center gap-2 truncate">
+              <svg class="w-4 h-4 text-[var(--apple-secondary)] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="12" y1="18" x2="12" y2="12"></line>
+                <line x1="9" y1="15" x2="15" y2="15"></line>
+              </svg>
+              <span id="fwFileNamePrompt" class="text-xs truncate">Chọn tệp tiny_touch_unified.bin...</span>
+            </div>
+            <span class="text-xs text-[var(--apple-blue)] font-medium shrink-0">Duyệt tệp</span>
+          </button>
+          <p class="text-[11px] text-[var(--apple-secondary)] mt-2">hoặc kéo thả file .bin vào đây</p>
+        </div>
 
         <div id="fwFileInfoBox" class="hidden px-1 pt-1 text-xs space-y-0.5">
           <div class="flex items-center justify-between">
@@ -758,8 +1097,12 @@
       mode: null,
       currentFw: '—',
       targetFw: 'v0.1.28',
-      keystrokeDelay: 100,
+      keystrokeDelay: 20,
+      submitEnter: true,
       wakeupDelay: 1000,
+      ledHid: [3, 1], // Cyan -> Blue
+      ledPiv: [6, 4], // Yellow -> Red
+      pivKeyStatus: null,
       keySequence: ['Enter'],
       fingerprints: [
         { slot: 1, name: 'Ngón 1 (Chủ sở hữu)', configured: false, hasPassword: false },
@@ -909,6 +1252,7 @@
     }
 
     function showTouchModal(icon, title, desc, showCancel = true) {
+      state.touchModalCancelled = false;
       const modal = document.getElementById('touchModal');
       const iconEl = document.getElementById('touchModalIcon');
       const titleEl = document.getElementById('touchModalTitle');
@@ -939,6 +1283,7 @@
           const [k, v] = tok.split('=');
           if (k === 'firmware') state.device.currentFw = 'v' + v;
           if (k === 'mode') state.device.mode = v ? v.toUpperCase() : 'HID';
+          if (k === 'piv') state.device.pivKeyStatus = v;
           if (k === 'hosts') state.device.hostsCount = parseInt(v, 10) || 0;
           if (k === 'sensor') {
             const sensorEl = document.getElementById('dashSensor');
@@ -957,6 +1302,34 @@
               });
             }
           }
+          if (k === 'enter') {
+            state.device.submitEnter = (v === '1');
+            if (typeof updateSubmitEnterUI === 'function') updateSubmitEnterUI();
+          }
+          if (k === 'delay') {
+            const delay = parseInt(v, 10);
+            if (!isNaN(delay)) {
+              state.device.keystrokeDelay = delay;
+              const delaySlider = document.getElementById('rangeDelay');
+              const delayDisplay = document.getElementById('delayDisplay');
+              if (delaySlider) delaySlider.value = delay;
+              if (delayDisplay) delayDisplay.textContent = delay + ' ms';
+            }
+          }
+          if (k === 'led_hid') {
+            const parts = v.split(',').map(n => parseInt(n, 10));
+            if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+              state.device.ledHid = parts;
+              if (typeof updateLedColorsUI === 'function') updateLedColorsUI();
+            }
+          }
+          if (k === 'led_piv') {
+            const parts = v.split(',').map(n => parseInt(n, 10));
+            if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+              state.device.ledPiv = parts;
+              if (typeof updateLedColorsUI === 'function') updateLedColorsUI();
+            }
+          }
         });
         saveDeviceConfig(state.device);
         updateTelemetry();
@@ -971,6 +1344,12 @@
       if (packet.startsWith('OK AUTH')) {
         log('✅ Vân tay quản trị được chấp thuận!', 'rx');
         hideTouchModal();
+        if (state.touchModalCancelled) {
+          state.touchModalCancelled = false;
+          state.pendingAction = null;
+          state.pendingMode = null;
+          return;
+        }
         if (state.pendingAction) {
           const act = state.pendingAction;
           state.pendingAction = null;
@@ -981,9 +1360,15 @@
       }
 
       if (packet.startsWith('ERR AUTH')) {
+        state.pendingAction = null;
+        state.pendingMode = null;
+        if (state.touchModalCancelled) {
+          state.touchModalCancelled = false;
+          log('ℹ️ Hết thời gian chờ xác thực vân tay (đã hủy trước đó).', 'warn');
+          return;
+        }
         showTouchModal('✕', 'Không khớp vân tay', 'Vân tay không khớp với quyền quản trị.', false);
         log('❌ Vân tay không khớp.', 'error');
-        state.pendingAction = null;
         setTimeout(hideTouchModal, 2000);
         return;
       }
@@ -1064,6 +1449,30 @@
 
       if (packet.startsWith('OK USB RECONNECT')) {
         log('✅ Thiết bị đã tái khởi tạo kết nối USB', 'rx');
+        return;
+      }
+
+      if (packet === 'EVENT PIV_CREATE') {
+        showTouchModal('⚙️', 'Đang tạo khóa PIV', 'Đang sinh cặp khóa RSA 2048-bit & chứng chỉ X.509 phần cứng...', false);
+        log('⚡ [Phần cứng] Đang sinh khóa RSA 2048-bit và lưu NVS...', 'warn');
+        return;
+      }
+
+      if (packet.startsWith('OK PIV CREATE')) {
+        showTouchModal('✓', 'Đã tạo khóa Slot 9A', 'Đã tạo thành công khóa RSA 2048-bit & chứng chỉ X.509 cho PIV SmartCard!', false);
+        log('✅ Khởi tạo khóa PIV Slot 9A thành công!', 'ok');
+        state.device.pivKeyStatus = 'ready';
+        saveDeviceConfig(state.device);
+        updateTelemetry();
+        setTimeout(hideTouchModal, 2000);
+        await sendSerialCommand('STATUS');
+        return;
+      }
+
+      if (packet.startsWith('ERR PIV')) {
+        showTouchModal('✕', 'Lỗi tạo khóa PIV', packet === 'ERR PIV BUSY' ? 'Phần cứng đang bận xử lý tác vụ khác.' : 'Không thể khởi tạo khóa RSA trên thiết bị.', false);
+        log(`❌ Lỗi tạo khóa PIV: ${packet}`, 'error');
+        setTimeout(hideTouchModal, 2000);
         return;
       }
 
@@ -1315,8 +1724,14 @@
               </svg>
             </div>
             <div>
-              <div class="flex items-center gap-2">
-                <span class="font-semibold text-base text-[var(--apple-label)]">${fp.name}</span>
+              <div class="flex items-center gap-1.5">
+                <span class="font-semibold text-base text-[var(--apple-label)] cursor-pointer hover:text-[var(--apple-blue)] transition-colors btn-rename-fp" data-slot="${fp.slot}" title="Bấm để đổi tên">${fp.name}</span>
+                <button class="btn-rename-fp text-[var(--apple-secondary)] hover:text-[var(--apple-blue)] p-1 rounded transition-colors" data-slot="${fp.slot}" title="Đổi tên ngón">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 20h9"></path>
+                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                  </svg>
+                </button>
                 <span class="text-[11px] font-mono px-2 py-0.5 rounded ${
                   fp.configured ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium' : 'bg-slate-500/10 text-[var(--apple-secondary)]'
                 }">Slot #${fp.slot}</span>
@@ -1335,12 +1750,48 @@
             <button class="btn-toggle-slot apple-btn ${fp.configured ? 'apple-btn-destructive' : 'apple-btn-secondary'} !text-xs !py-1.5 !px-3" data-slot="${fp.slot}">
               ${fp.configured ? 'Xóa ngón' : 'Đăng ký mới'}
             </button>
+            ${fp.slot > 5 && !fp.configured ? `
+              <button class="btn-remove-slot apple-btn apple-btn-secondary !text-xs !py-1.5 !px-2 text-rose-500" data-slot="${fp.slot}" title="Xóa slot thừa">
+                ✕
+              </button>
+            ` : ''}
           </div>
         `;
         container.appendChild(row);
       });
 
-      document.getElementById('slotStatusCount').textContent = `${configuredCount}/5 đã đăng ký`;
+      document.getElementById('slotStatusCount').textContent = `${configuredCount}/${state.device.fingerprints.length} đã đăng ký`;
+
+      document.querySelectorAll('.btn-rename-fp').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const slot = parseInt(btn.getAttribute('data-slot'), 10);
+          const target = state.device.fingerprints.find(f => f.slot === slot);
+          if (!target) return;
+          state.activeSlotForRename = slot;
+          const input = document.getElementById('inputFpName');
+          const title = document.getElementById('renameModalTitle');
+          if (title) title.textContent = `Đổi tên ngón tay (Slot #${slot})`;
+          if (input) {
+            input.value = target.name;
+            document.getElementById('renameModal').classList.remove('hidden');
+            setTimeout(() => input.focus(), 80);
+          }
+        });
+      });
+
+      document.querySelectorAll('.btn-remove-slot').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const slot = parseInt(btn.getAttribute('data-slot'), 10);
+          const idx = state.device.fingerprints.findIndex(f => f.slot === slot);
+          if (idx !== -1) {
+            state.device.fingerprints.splice(idx, 1);
+            saveDeviceConfig(state.device);
+            renderSlots();
+            updateTelemetry();
+            log(`Đã xóa slot thừa #${slot}.`, 'info');
+          }
+        });
+      });
 
       document.querySelectorAll('.btn-set-pwd').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -1383,7 +1834,7 @@
           modeEl.textContent = 'Đang nhận diện...';
         }
         const savedCount = state.device.fingerprints.filter(f => f.configured).length;
-        fpEl.textContent = `${savedCount} / 5 ngón`;
+        fpEl.textContent = `${savedCount}/${state.device.fingerprints.length}`;
         if (sensorEl && sensorEl.textContent === '—') {
           sensorEl.textContent = 'Cảm biến: Sẵn sàng';
           sensorEl.className = 'text-[11px] font-medium px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400';
@@ -1420,6 +1871,8 @@
       const cardHid = document.getElementById('cardHidMode');
       const cardPiv = document.getElementById('cardPivMode');
       const sectionKeySeq = document.getElementById('sectionKeySeq');
+      const sectionWebHost = document.getElementById('sectionWebHost');
+      const sectionPivSmartCard = document.getElementById('sectionPivSmartCard');
 
       if (!isConnected || (!isHid && !isPiv)) {
         // Trạng thái chưa kết nối hoặc chưa rõ chế độ: Cả 2 nút đều ở trạng thái xám
@@ -1430,6 +1883,8 @@
         if (cardHid) cardHid.classList.remove('bg-blue-500/[0.04]');
         if (cardPiv) cardPiv.classList.remove('bg-indigo-500/[0.04]');
         if (sectionKeySeq) sectionKeySeq.classList.add('hidden');
+        if (sectionWebHost) sectionWebHost.classList.remove('hidden');
+        if (sectionPivSmartCard) sectionPivSmartCard.classList.add('hidden');
       } else if (isHid) {
         btnHid.className = 'apple-btn apple-btn-primary shrink-0';
         btnHid.textContent = 'Đang kích hoạt ✓';
@@ -1438,6 +1893,8 @@
         if (cardHid) cardHid.classList.add('bg-blue-500/[0.04]');
         if (cardPiv) cardPiv.classList.remove('bg-indigo-500/[0.04]');
         if (sectionKeySeq) sectionKeySeq.classList.remove('hidden');
+        if (sectionWebHost) sectionWebHost.classList.remove('hidden');
+        if (sectionPivSmartCard) sectionPivSmartCard.classList.add('hidden');
       } else if (isPiv) {
         btnPiv.className = 'apple-btn apple-btn-primary shrink-0';
         btnPiv.textContent = 'Đang kích hoạt ✓';
@@ -1446,6 +1903,31 @@
         if (cardPiv) cardPiv.classList.add('bg-indigo-500/[0.04]');
         if (cardHid) cardHid.classList.remove('bg-blue-500/[0.04]');
         if (sectionKeySeq) sectionKeySeq.classList.add('hidden');
+        if (sectionWebHost) sectionWebHost.classList.add('hidden');
+        if (sectionPivSmartCard) sectionPivSmartCard.classList.remove('hidden');
+      }
+      updateSubmitEnterUI();
+
+      const pivKeyBadge = document.getElementById('pivKeyStatusBadge');
+      const btnCreatePivKey = document.getElementById('btnCreatePivKey');
+      if (pivKeyBadge && btnCreatePivKey) {
+        if (!isConnected) {
+          pivKeyBadge.textContent = 'Đang kiểm tra...';
+          pivKeyBadge.className = 'font-mono text-xs px-2.5 py-1 rounded-md bg-slate-500/10 text-[var(--apple-secondary)] font-medium';
+          btnCreatePivKey.classList.add('hidden');
+        } else if (state.device.pivKeyStatus === 'ready') {
+          pivKeyBadge.textContent = 'RSA 2048-bit X.509 ✓';
+          pivKeyBadge.className = 'font-mono text-xs px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-medium';
+          btnCreatePivKey.classList.add('hidden');
+        } else if (state.device.pivKeyStatus === 'unconfigured') {
+          pivKeyBadge.textContent = 'Chưa có khóa (Trống)';
+          pivKeyBadge.className = 'font-mono text-xs px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-medium';
+          btnCreatePivKey.classList.remove('hidden');
+        } else {
+          pivKeyBadge.textContent = 'Đang kiểm tra...';
+          pivKeyBadge.className = 'font-mono text-xs px-2.5 py-1 rounded-md bg-slate-500/10 text-[var(--apple-secondary)] font-medium';
+          btnCreatePivKey.classList.add('hidden');
+        }
       }
     }
 
@@ -1522,8 +2004,10 @@
     }
 
     document.getElementById('btnCancelTouchModal').addEventListener('click', () => {
+      state.touchModalCancelled = true;
       hideTouchModal();
       state.pendingAction = null;
+      state.pendingMode = null;
       log('Đã hủy thao tác vân tay.', 'warn');
     });
 
@@ -1576,6 +2060,66 @@
       }
     });
 
+    // Dynamic Fingerprint Slots & Rename Handlers
+    const btnAddFpSlot = document.getElementById('btnAddFingerprintSlot');
+    if (btnAddFpSlot) {
+      btnAddFpSlot.addEventListener('click', () => {
+        const nextSlot = state.device.fingerprints.length > 0
+          ? Math.max(...state.device.fingerprints.map(f => f.slot)) + 1
+          : 1;
+        state.device.fingerprints.push({
+          slot: nextSlot,
+          name: `Ngón ${nextSlot}`,
+          configured: false,
+          hasPassword: false
+        });
+        saveDeviceConfig(state.device);
+        renderSlots();
+        updateTelemetry();
+        log(`Đã thêm vị trí vân tay: Slot #${nextSlot}`, 'info');
+      });
+    }
+
+    const renameModal = document.getElementById('renameModal');
+    const inputFpName = document.getElementById('inputFpName');
+    const btnCloseRenameModal = document.getElementById('btnCloseRenameModal');
+    const btnCancelRename = document.getElementById('btnCancelRename');
+    const btnSaveFpName = document.getElementById('btnSaveFpName');
+
+    if (btnCloseRenameModal) {
+      btnCloseRenameModal.addEventListener('click', () => {
+        if (renameModal) renameModal.classList.add('hidden');
+      });
+    }
+    if (btnCancelRename) {
+      btnCancelRename.addEventListener('click', () => {
+        if (renameModal) renameModal.classList.add('hidden');
+      });
+    }
+    if (btnSaveFpName) {
+      btnSaveFpName.addEventListener('click', () => {
+        const slot = state.activeSlotForRename;
+        const target = state.device.fingerprints.find(f => f.slot === slot);
+        if (target && inputFpName) {
+          const newName = inputFpName.value.trim();
+          if (newName) {
+            target.name = newName;
+            saveDeviceConfig(state.device);
+            renderSlots();
+            log(`Đã đổi tên Slot #${slot} thành "${newName}".`, 'info');
+          }
+        }
+        if (renameModal) renameModal.classList.add('hidden');
+      });
+    }
+    if (inputFpName) {
+      inputFpName.addEventListener('keyup', (e) => {
+        if (e.key === 'Enter' && btnSaveFpName) {
+          btnSaveFpName.click();
+        }
+      });
+    }
+
     // Web Host Pairing Button
     document.getElementById('btnPairWebHost').addEventListener('click', async () => {
       if (!state.connected) {
@@ -1619,6 +2163,123 @@
       state.pendingMode = 'PIV';
       runWithAuth({ cmd: 'SET MODE PIV', desc: 'Chuyển sang PIV Mode' });
     });
+
+    // PIV SmartCard Quick Actions & Clipboard
+    const btnTogglePivPin = document.getElementById('btnTogglePivPin');
+    const pivPinDisplay = document.getElementById('pivPinDisplay');
+    let isPivPinRevealed = false;
+
+    function togglePivPin() {
+      if (!pivPinDisplay) return;
+      isPivPinRevealed = !isPivPinRevealed;
+
+      pivPinDisplay.classList.remove('dissolve', 'gather');
+      void pivPinDisplay.offsetWidth; // Force CSS reflow to retrigger animation
+
+      if (isPivPinRevealed) {
+        pivPinDisplay.classList.add('dissolve');
+        pivPinDisplay.textContent = '754321';
+        if (btnTogglePivPin) {
+          btnTogglePivPin.title = 'Ẩn mã PIN';
+          btnTogglePivPin.innerHTML = `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+            <line x1="1" y1="1" x2="23" y2="23"></line>
+          </svg>`;
+        }
+      } else {
+        pivPinDisplay.classList.add('gather');
+        pivPinDisplay.textContent = '*****';
+        if (btnTogglePivPin) {
+          btnTogglePivPin.title = 'Hiện mã PIN';
+          btnTogglePivPin.innerHTML = `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>`;
+        }
+      }
+    }
+
+    if (btnTogglePivPin) {
+      btnTogglePivPin.addEventListener('click', togglePivPin);
+    }
+    if (pivPinDisplay) {
+      pivPinDisplay.addEventListener('click', togglePivPin);
+    }
+
+    const btnCopyPivPin = document.getElementById('btnCopyPivPin');
+    if (btnCopyPivPin) {
+      btnCopyPivPin.addEventListener('click', async () => {
+        await navigator.clipboard.writeText('754321');
+        btnCopyPivPin.innerHTML = `<svg class="w-4 h-4 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>`;
+        btnCopyPivPin.title = 'Đã sao chép!';
+        setTimeout(() => {
+          btnCopyPivPin.innerHTML = `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>`;
+          btnCopyPivPin.title = 'Sao chép mã PIN';
+        }, 1500);
+        log('📋 Đã sao chép mã PIN SmartCard: 754321', 'info');
+      });
+    }
+
+    const btnCopyPairCmd = document.getElementById('btnCopyPairCmd');
+    if (btnCopyPairCmd) {
+      btnCopyPairCmd.addEventListener('click', async () => {
+        await navigator.clipboard.writeText('sudo sc_auth pair -u $(whoami)');
+        btnCopyPairCmd.textContent = '✓ Đã sao chép';
+        setTimeout(() => { btnCopyPairCmd.textContent = '📋 Sao chép lệnh ghép đôi'; }, 1500);
+        log('📋 Đã sao chép lệnh ghép đôi: sudo sc_auth pair -u $(whoami)', 'info');
+      });
+    }
+
+    const btnCopyListCmd = document.getElementById('btnCopyListCmd');
+    if (btnCopyListCmd) {
+      btnCopyListCmd.addEventListener('click', async () => {
+        await navigator.clipboard.writeText('sc_auth list');
+        btnCopyListCmd.textContent = '✓ Đã sao chép';
+        setTimeout(() => { btnCopyListCmd.textContent = '📋 Sao chép lệnh kiểm tra (sc_auth list)'; }, 1500);
+        log('📋 Đã sao chép lệnh: sc_auth list', 'info');
+      });
+    }
+
+    const btnPivAuthorize = document.getElementById('btnPivAuthorize');
+    if (btnPivAuthorize) {
+      btnPivAuthorize.addEventListener('click', () => {
+        if (!state.connected) {
+          log('Chưa kết nối Web Serial. Vui lòng bấm "Kết nối" trước.', 'warn');
+          return;
+        }
+        showTouchModal('👆', 'Xác thực Touch ID', 'Chạm ngón tay đã lưu vào cảm biến tinyTouch để mở khóa...');
+        sendSerialCommand('AUTH');
+      });
+    }
+
+    const btnRefreshPivStatus = document.getElementById('btnRefreshPivStatus');
+    if (btnRefreshPivStatus) {
+      btnRefreshPivStatus.addEventListener('click', () => {
+        if (!state.connected) {
+          log('Chưa kết nối Web Serial. Vui lòng bấm "Kết nối" trước.', 'warn');
+          return;
+        }
+        sendSerialCommand('STATUS');
+      });
+    }
+
+    const btnCreatePivKeyEl = document.getElementById('btnCreatePivKey');
+    if (btnCreatePivKeyEl) {
+      btnCreatePivKeyEl.addEventListener('click', () => {
+        if (!state.connected) {
+          log('Chưa kết nối Web Serial. Vui lòng bấm "Kết nối" trước.', 'warn');
+          return;
+        }
+        if (confirm('Khởi tạo cặp khóa RSA 2048-bit và chứng chỉ tự ký X.509 cho Slot 9A trên phần cứng tinyTouch? Quá trình có thể mất vài giây.')) {
+          runWithAuth({ cmd: 'PIV CREATE', desc: 'Khởi tạo khóa RSA 2048-bit Slot 9A' });
+        }
+      });
+    }
 
     // Segmented Navigation Tabs
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -1714,6 +2375,169 @@
       saveDeviceConfig(state.device);
       runWithAuth({ cmd: `SET WAKEUP_DELAY ${wakeupSlider.value}`, desc: `Lưu độ trễ đánh thức ${wakeupSlider.value}ms` });
     });
+
+    // Sensor LED Aura Color Configuration
+    const LED_NAMES = {
+      1: 'Blue',
+      2: 'Green',
+      3: 'Cyan',
+      4: 'Red',
+      5: 'Purple',
+      6: 'Yellow',
+      7: 'White'
+    };
+
+    const LED_HEX = {
+      1: '#3b82f6', // Blue
+      2: '#22c55e', // Green
+      3: '#06b6d4', // Cyan
+      4: '#ef4444', // Red
+      5: '#a855f7', // Purple
+      6: '#eab308', // Yellow
+      7: '#ffffff'  // White
+    };
+
+    function updateLedColorsUI() {
+      const hid = state.device.ledHid || [3, 1];
+      const piv = state.device.ledPiv || [6, 4];
+      const sHidStart = document.getElementById('selectHidLedStart');
+      const sHidEnd = document.getElementById('selectHidLedEnd');
+      const sPivStart = document.getElementById('selectPivLedStart');
+      const sPivEnd = document.getElementById('selectPivLedEnd');
+
+      if (sHidStart) sHidStart.value = hid[0];
+      if (sHidEnd) sHidEnd.value = hid[1];
+      if (sPivStart) sPivStart.value = piv[0];
+      if (sPivEnd) sPivEnd.value = piv[1];
+
+      // Update Settings tab preview dots
+      const prevHidDotStart = document.getElementById('previewHidDotStart');
+      const prevHidDotEnd = document.getElementById('previewHidDotEnd');
+      if (prevHidDotStart) prevHidDotStart.style.backgroundColor = LED_HEX[hid[0]] || '#06b6d4';
+      if (prevHidDotEnd) prevHidDotEnd.style.backgroundColor = LED_HEX[hid[1]] || '#3b82f6';
+
+      const prevPivDotStart = document.getElementById('previewPivDotStart');
+      const prevPivDotEnd = document.getElementById('previewPivDotEnd');
+      if (prevPivDotStart) prevPivDotStart.style.backgroundColor = LED_HEX[piv[0]] || '#eab308';
+      if (prevPivDotEnd) prevPivDotEnd.style.backgroundColor = LED_HEX[piv[1]] || '#ef4444';
+
+      // Update Mode tab badge indicators
+      const dotHidStart = document.getElementById('dotHidLedStart');
+      const dotHidEnd = document.getElementById('dotHidLedEnd');
+      if (dotHidStart) dotHidStart.style.backgroundColor = LED_HEX[hid[0]] || '#06b6d4';
+      if (dotHidEnd) dotHidEnd.style.backgroundColor = LED_HEX[hid[1]] || '#3b82f6';
+
+      const dotPivStart = document.getElementById('dotPivLedStart');
+      const dotPivEnd = document.getElementById('dotPivLedEnd');
+      if (dotPivStart) dotPivStart.style.backgroundColor = LED_HEX[piv[0]] || '#eab308';
+      if (dotPivEnd) dotPivEnd.style.backgroundColor = LED_HEX[piv[1]] || '#ef4444';
+    }
+
+    const sHidStart = document.getElementById('selectHidLedStart');
+    const sHidEnd = document.getElementById('selectHidLedEnd');
+    const sPivStart = document.getElementById('selectPivLedStart');
+    const sPivEnd = document.getElementById('selectPivLedEnd');
+
+    if (sHidStart && sHidEnd) {
+      const updateHidPreview = () => {
+        const prevStart = document.getElementById('previewHidDotStart');
+        const prevEnd = document.getElementById('previewHidDotEnd');
+        const dotStart = document.getElementById('dotHidLedStart');
+        const dotEnd = document.getElementById('dotHidLedEnd');
+        const c1 = LED_HEX[sHidStart.value] || '#06b6d4';
+        const c2 = LED_HEX[sHidEnd.value] || '#3b82f6';
+        if (prevStart) prevStart.style.backgroundColor = c1;
+        if (prevEnd) prevEnd.style.backgroundColor = c2;
+        if (dotStart) dotStart.style.backgroundColor = c1;
+        if (dotEnd) dotEnd.style.backgroundColor = c2;
+      };
+      sHidStart.addEventListener('change', updateHidPreview);
+      sHidEnd.addEventListener('change', updateHidPreview);
+    }
+
+    if (sPivStart && sPivEnd) {
+      const updatePivPreview = () => {
+        const prevStart = document.getElementById('previewPivDotStart');
+        const prevEnd = document.getElementById('previewPivDotEnd');
+        const dotStart = document.getElementById('dotPivLedStart');
+        const dotEnd = document.getElementById('dotPivLedEnd');
+        const c1 = LED_HEX[sPivStart.value] || '#eab308';
+        const c2 = LED_HEX[sPivEnd.value] || '#ef4444';
+        if (prevStart) prevStart.style.backgroundColor = c1;
+        if (prevEnd) prevEnd.style.backgroundColor = c2;
+        if (dotStart) dotStart.style.backgroundColor = c1;
+        if (dotEnd) dotEnd.style.backgroundColor = c2;
+      };
+      sPivStart.addEventListener('change', updatePivPreview);
+      sPivEnd.addEventListener('change', updatePivPreview);
+    }
+
+    const btnSaveHidLed = document.getElementById('btnSaveHidLed');
+    if (btnSaveHidLed) {
+      btnSaveHidLed.addEventListener('click', () => {
+        const start = parseInt(sHidStart ? sHidStart.value : 3, 10);
+        const end = parseInt(sHidEnd ? sHidEnd.value : 1, 10);
+        state.device.ledHid = [start, end];
+        saveDeviceConfig(state.device);
+        runWithAuth({
+          cmd: `SET LED_HID ${start} ${end}`,
+          desc: `Cấu hình màu thở HID (${LED_NAMES[start]} → ${LED_NAMES[end]})`
+        });
+      });
+    }
+
+    const btnSavePivLed = document.getElementById('btnSavePivLed');
+    if (btnSavePivLed) {
+      btnSavePivLed.addEventListener('click', () => {
+        const start = parseInt(sPivStart ? sPivStart.value : 6, 10);
+        const end = parseInt(sPivEnd ? sPivEnd.value : 4, 10);
+        state.device.ledPiv = [start, end];
+        saveDeviceConfig(state.device);
+        runWithAuth({
+          cmd: `SET LED_PIV ${start} ${end}`,
+          desc: `Cấu hình màu thở PIV (${LED_NAMES[start]} → ${LED_NAMES[end]})`
+        });
+      });
+    }
+
+    updateLedColorsUI();
+
+    // Auto-submit Enter UI & Toggle Actions
+    function updateSubmitEnterUI() {
+      const isEnabled = state.device.submitEnter !== false;
+      const dot = document.getElementById('submitEnterDot');
+      const label = document.getElementById('submitEnterLabel');
+      const pivDot = document.getElementById('pivSubmitEnterDot');
+      const pivText = document.getElementById('pivSubmitEnterText');
+      if (dot) dot.className = `w-2 h-2 rounded-full ${isEnabled ? 'bg-emerald-500' : 'bg-slate-400'}`;
+      if (label) label.textContent = isEnabled ? 'Đang bật (Mặc định)' : 'Đang tắt';
+      if (pivDot) pivDot.className = `w-2 h-2 rounded-full ${isEnabled ? 'bg-emerald-500' : 'bg-slate-400'}`;
+      if (pivText) pivText.textContent = isEnabled ? 'Bật (Mặc định)' : 'Tắt';
+    }
+
+    function toggleSubmitEnterAction() {
+      if (!state.connected) {
+        log('Chưa kết nối Web Serial. Vui lòng bấm "Kết nối" trước.', 'warn');
+        return;
+      }
+      const nextState = state.device.submitEnter === false ? true : false;
+      state.device.submitEnter = nextState;
+      saveDeviceConfig(state.device);
+      updateSubmitEnterUI();
+      runWithAuth({
+        cmd: `SET SUBMIT_ENTER ${nextState ? 1 : 0}`,
+        desc: nextState ? 'Bật tự động nhấn Enter' : 'Tắt tự động nhấn Enter'
+      });
+    }
+
+    const btnToggleSubmitEnter = document.getElementById('btnToggleSubmitEnter');
+    if (btnToggleSubmitEnter) {
+      btnToggleSubmitEnter.addEventListener('click', toggleSubmitEnterAction);
+    }
+    const btnTogglePivSubmitEnter = document.getElementById('btnTogglePivSubmitEnter');
+    if (btnTogglePivSubmitEnter) {
+      btnTogglePivSubmitEnter.addEventListener('click', toggleSubmitEnterAction);
+    }
 
     // Console Inspector Controls
     const termDrawer = document.getElementById('terminalDrawer');
@@ -1833,6 +2657,15 @@
     inputFwFile.addEventListener('change', async (e) => {
       const file = e.target.files && e.target.files[0];
       if (!file) return;
+      await processFwFile(file);
+    });
+
+    async function processFwFile(file) {
+      if (!file.name.endsWith('.bin')) {
+        log('Lỗi: Chỉ chấp nhận tệp .bin', 'error');
+        fwProgressText.textContent = 'Lỗi: Chỉ chấp nhận tệp .bin!';
+        return;
+      }
 
       fwProgressText.textContent = 'Đang tính toán mã băm SHA-256...';
       try {
@@ -1859,6 +2692,30 @@
         log(`Lỗi đọc file firmware: ${err.message}`, 'error');
         fwProgressText.textContent = 'Lỗi đọc tệp firmware!';
       }
+    }
+
+    const fwDropZone = document.getElementById('fwDropZone');
+    fwDropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      fwDropZone.classList.add('!border-[var(--apple-blue)]', '!bg-[var(--apple-blue)]/10');
+    });
+
+    fwDropZone.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      fwDropZone.classList.remove('!border-[var(--apple-blue)]', '!bg-[var(--apple-blue)]/10');
+    });
+
+    fwDropZone.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      fwDropZone.classList.remove('!border-[var(--apple-blue)]', '!bg-[var(--apple-blue)]/10');
+
+      const files = e.dataTransfer.files;
+      if (files.length === 0) return;
+      const file = files[0];
+      await processFwFile(file);
     });
 
     function waitForPacket(predicate, timeoutMs = 8000) {

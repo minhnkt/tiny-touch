@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+#include "device_config.h"
 #include "driver/gpio.h"
 #include "driver/uart.h"
 #include "esp_log.h"
@@ -21,7 +22,6 @@ static const uint16_t END_SLOT = 5;
 static const uint32_t FINGER_WAIT_MS = 7000;
 static const uint8_t FP_LED_BLUE = 0x01;
 static const uint8_t FP_LED_GREEN = 0x02;
-static const uint8_t FP_LED_CYAN = 0x03;
 static const uint8_t FP_LED_RED = 0x04;
 static const uint8_t FP_LED_FUNC_BREATH = 1;
 static const uint8_t FP_LED_FUNC_STEADY = 3;
@@ -207,15 +207,25 @@ static void set_aura_breathing(uint8_t start_color, uint8_t end_color) {
   fp_command(0x3c, params, sizeof(params), &confirm, NULL, NULL, 1000);
 }
 
+static void set_idle_breathing(void) {
+  uint8_t start = 0, end = 0;
+  if (device_config_mode() == DEVICE_MODE_PIV) {
+    device_config_piv_led(&start, &end);
+  } else {
+    device_config_hid_led(&start, &end);
+  }
+  set_aura_breathing(start, end);
+}
+
 static void show_result(bool ok) {
   set_aura(ok ? FP_LED_GREEN : FP_LED_RED);
   vTaskDelay(pdMS_TO_TICKS(350));
-  set_aura_breathing(FP_LED_CYAN, FP_LED_BLUE);
+  set_idle_breathing();
 }
 
 void fingerprint_led_idle(void) {
   if (!fp_take(1000)) return;
-  set_aura_breathing(FP_LED_CYAN, FP_LED_BLUE);
+  set_idle_breathing();
   fp_give();
 }
 
@@ -393,6 +403,10 @@ bool fingerprint_authorize_prompted(void (*prompt)(void)) {
     vTaskDelay(pdMS_TO_TICKS(120));
   }
   prompted_authorization_active = false;
+  if (ok) {
+    vTaskDelay(pdMS_TO_TICKS(350));
+  }
+  fingerprint_led_idle();
   return ok;
 }
 

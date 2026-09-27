@@ -42,20 +42,41 @@ Tài liệu đặc tả chi tiết giao thức truyền thông qua cổng nối 
 
 #### `STATUS`
 Lấy toàn bộ thông số hoạt động hiện hành của thiết bị.
-- **Phản hồi:**
+- **Phản hồi (Protocol v7):**
   ```text
-  OK STATUS mode=<HID|PIV> fps=<count> sensor=<OK|ERR> fw=<version> hosts=<count>
+  OK STATUS protocol=7 firmware=<version> build=<id> mode=<hid|piv> piv=<ready|unconfigured> sensor=<ready|offline> fingerprints=<count> hosts=<count> enter=<0|1> delay=<ms> led_hid=<start>,<end> led_piv=<start>,<end> ota=<idle|writing|staged>
   ```
-  - `mode`: Chế độ hiện tại (`HID` hoặc `PIV`).
-  - `fps`: Số lượng ngón tay đã đăng ký trong bộ nhớ (0 đến 5).
-  - `sensor`: Trạng thái kết nối với cảm biến UART (`OK` hoặc `ERR`).
-  - `fw`: Phiên bản firmware hiện hành (vd: `v0.1.28`).
+  - `mode`: Chế độ hiện tại (`hid` hoặc `piv`).
+  - `fingerprints`: Số lượng ngón tay đã đăng ký trong bộ nhớ (0 đến 5).
+  - `sensor`: Trạng thái kết nối cảm biến (`ready` hoặc `offline`).
+  - `firmware`: Phiên bản firmware hiện hành (vd: `0.1.28`).
   - `hosts`: Số lượng máy chủ đã ghép nối an toàn (Host Pairing).
+  - `enter`: Trạng thái tự động gõ phím Enter (`1` = bật, `0` = tắt).
+  - `delay`: Độ trễ gõ giữa các ký tự (ms).
+  - `led_hid`: Cặp mã màu thở phần cứng cho chế độ HID (`<start_color>,<end_color>`).
+  - `led_piv`: Cặp mã màu thở phần cứng cho chế độ PIV (`<start_color>,<end_color>`).
+  - `ota`: Trạng thái cập nhật firmware qua Serial.
+
+#### `SET LED_HID <start> <end>` / `SET LED_PIV <start> <end>`
+Cấu hình cặp màu thở đèn LED vòng cảm biến cho chế độ HID hoặc PIV (yêu cầu quyền quản trị `AUTH`).
+- Bảng mã màu phần cứng (1 đến 7):
+  - `1`: Xanh lam (Blue)
+  - `2`: Xanh lục (Green)
+  - `3`: Xanh ngọc (Cyan)
+  - `4`: Đỏ (Red)
+  - `5`: Tím (Purple)
+  - `6`: Vàng kim (Yellow)
+  - `7`: Trắng (White)
+- Giá trị mặc định:
+  - HID: `SET LED_HID 3 1` (Cyan → Xanh lam)
+  - PIV: `SET LED_PIV 6 4` (Vàng kim → Đỏ)
+- Thiết bị lưu cấu hình vào Flash NVS và lập tức cập nhật hiệu ứng thở trên vòng cảm biến.
+- **Phản hồi:** `OK SET` hoặc `ERR SET`
 
 #### `SET_MODE <HID|PIV>`
 Thay đổi chế độ hoạt động chính.
-- `SET_MODE HID`: Chuyển sang chế độ giả lập bàn phím tự gõ mật khẩu.
-- `SET_MODE PIV`: Chuyển sang chế độ SmartCard X.509.
+- `SET_MODE HID`: Chuyển sang chế độ giả lập bàn phím tự gõ mật khẩu (Vòng LED thở Cyan - Xanh lam).
+- `SET_MODE PIV`: Chuyển sang chế độ SmartCard X.509 (Vòng LED thở Vàng kim - Đỏ ấm hổ phách).
 - **Phản hồi:** `OK MODE_CHANGED to=<MODE>`
 
 #### `SET_KEY_SEQ <sequence>`

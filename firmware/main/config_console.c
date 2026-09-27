@@ -150,13 +150,21 @@ static void status(void) {
   // Read health after that probe so one STATUS line cannot say ready with an
   // unavailable fingerprint count.
   bool sensor_is_ready = fingerprint_is_ready();
+  uint8_t hid_start = 0, hid_end = 0, piv_start = 0, piv_end = 0;
+  device_config_hid_led(&hid_start, &hid_end);
+  device_config_piv_led(&piv_start, &piv_end);
   snprintf(line, sizeof(line),
-           "OK STATUS protocol=6 firmware=%s build=%s mode=%s piv=%s sensor=%s fingerprints=%d "
-           "hosts=%u ota=%s",
+           "OK STATUS protocol=7 firmware=%s build=%s mode=%s piv=%s sensor=%s fingerprints=%d "
+           "hosts=%u enter=%u delay=%u led_hid=%u,%u led_piv=%u,%u ota=%s",
            TINYTOUCH_FIRMWARE_VERSION, TINYTOUCH_BUILD_ID, device_config_mode_name(),
            piv_uses_provisioned_keys() ? "ready" : "unconfigured",
            sensor_is_ready ? "ready" : "offline", count,
-           (unsigned)device_config_hid_host_count(), firmware_update_staged() ? "staged" :
+           (unsigned)device_config_hid_host_count(),
+           device_config_submit_enter() ? 1 : 0,
+           (unsigned)device_config_typing_delay_ms(),
+           (unsigned)hid_start, (unsigned)hid_end,
+           (unsigned)piv_start, (unsigned)piv_end,
+           firmware_update_staged() ? "staged" :
            (firmware_update_active() ? "writing" : "idle"));
   reply(line);
 }
@@ -165,6 +173,7 @@ static void set_mode(const char *mode) {
   if (!require_authorized()) return;
   bool ok = strcmp(mode, "PIV") == 0 ? device_config_set_mode(DEVICE_MODE_PIV) :
             strcmp(mode, "HID") == 0 ? device_config_set_mode(DEVICE_MODE_HID) : false;
+  if (ok) fingerprint_led_idle();
   reply(ok ? "OK SET MODE" : "ERR SET MODE");
 }
 
@@ -180,6 +189,23 @@ static void set_value(char *arguments) {
   else if (ok && strcmp(arguments, "WAKEUP_DELAY") == 0 && number <= 3000) {
     // TODO: Persist wakeup_delay when CONFIG_VERSION bumped to 7
     ok = true;
+  }
+  else if (strncmp(arguments, "LED_HID ", 8) == 0 || strncmp(arguments, "LED_PIV ", 8) == 0) {
+    bool is_piv = strncmp(arguments, "LED_PIV ", 8) == 0;
+    char *colors = arguments + 8;
+    char *end_str = strchr(colors, ' ');
+    uint32_t c_start = 0, c_end = 0;
+    ok = (end_str != NULL);
+    if (ok) {
+      *end_str++ = '\0';
+      ok = parse_u32(colors, 7, &c_start) && parse_u32(end_str, 7, &c_end) &&
+           c_start >= 1 && c_start <= 7 && c_end >= 1 && c_end <= 7;
+    }
+    if (ok) {
+      ok = is_piv ? device_config_set_piv_led((uint8_t)c_start, (uint8_t)c_end) :
+                    device_config_set_hid_led((uint8_t)c_start, (uint8_t)c_end);
+      if (ok) fingerprint_led_idle();
+    }
   }
   else ok = false;
   reply(ok ? "OK SET" : "ERR SET");
