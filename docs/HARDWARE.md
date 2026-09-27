@@ -106,7 +106,19 @@ Mạch **ESP32-S3 SuperMini** kết nối với **SW111**:
 
 ---
 
-## 4. File in 3D vỏ thiết bị (3D Printed Case)
+## 4. Trạng thái đèn LED chỉ thị (LED Status Indicators)
+
+Cảm biến vân tay tròn (SW111, Grow R503) tích hợp vòng đèn LED RGB chỉ thị trạng thái vận hành trực quan của thiết bị:
+
+| Màu sắc LED | Trạng thái thiết bị | Ý nghĩa & Hành vi chi tiết |
+|:---|:---|:---|
+| 🔵 **Xanh dương (Blue)** | **Chờ (Idle / Standby)** | Cảm biến sẵn sàng nhận diện hoặc đang chờ người dùng đặt ngón tay trong quy trình đăng ký mẫu (Enroll). Trạng thái đèn sáng tĩnh mặc định khi thiết bị hoạt động bình thường. |
+| 🟢 **Xanh lá (Green)** | **Thành công (Success / Match OK)** | Nhận diện vân tay trùng khớp hợp lệ với một trong các Slot đã đăng ký, hoặc hoàn thành một bước/chu kỳ lấy mẫu vân tay mới. Đèn sáng xanh trong 350ms rồi tự động chuyển về xanh dương. |
+| 🔴 **Đỏ (Red)** | **Lỗi / Không khớp (Error / Mismatch)** | Vân tay đặt vào không khớp với bất kỳ Slot nào trong bộ nhớ, ngón tay nhấc ra quá sớm khiến cảm biến chụp lỗi, hoặc quy trình đăng ký thất bại. Đèn sáng đỏ cảnh báo trong 350ms rồi tự động chuyển về xanh dương. |
+
+---
+
+## 5. File in 3D vỏ thiết bị (3D Printed Case)
 
 Tất cả các file thiết kế 3D hoàn chỉnh nằm trong thư mục [`docs/hardware/case/`](hardware/case/):
 
