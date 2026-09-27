@@ -973,41 +973,32 @@
   <!-- MODAL: TOUCH ID BIOMETRIC SHEET (Apple Sheet Style) -->
   <div id="touchModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-md flex items-center justify-center hidden p-4">
     <div class="apple-group max-w-sm w-full p-6 text-center space-y-4 shadow-2xl border border-[var(--apple-border-strong)]">
-      <div id="touchModalIcon" class="w-14 h-14 rounded-full bg-[var(--apple-surface-secondary)] border-2 border-[var(--apple-blue)] flex items-center justify-center mx-auto shadow-sm relative">
+      <div id="touchModalIcon" class="w-14 h-14 rounded-full bg-[var(--apple-surface-secondary)] border-2 border-[var(--apple-blue)] flex items-center justify-center mx-auto shadow-sm relative overflow-hidden">
         <style>
-          @keyframes fingerprint-scan {
-            0% { opacity: 0.4; transform: scale(0.8); }
-            50% { opacity: 1; transform: scale(1); }
-            100% { opacity: 0.4; transform: scale(0.8); }
+          @keyframes scan-up {
+            0% { transform: translateY(20px); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: translateY(-20px); opacity: 0; }
           }
-          @keyframes glow-pulse {
-            0%, 100% { filter: drop-shadow(0 0 4px rgba(0, 122, 255, 0.3)); }
-            50% { filter: drop-shadow(0 0 12px rgba(0, 122, 255, 0.6)); }
-          }
-          .fingerprint-icon {
-            animation: fingerprint-scan 2s ease-in-out infinite;
-          }
-          .fingerprint-glow {
-            animation: glow-pulse 2s ease-in-out infinite;
+          .fingerprint-scan {
+            animation: scan-up 2s ease-in-out infinite;
           }
         </style>
-        <svg class="w-8 h-8 text-[var(--apple-blue)] fingerprint-icon fingerprint-glow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <!-- Outer fingerprint loops -->
-          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" opacity="0.3"/>
-
-          <!-- Middle loop rings -->
-          <path d="M12 4c-4.41 0-8 3.59-8 8s3.59 8 8 8 8-3.59 8-8-3.59-8-8-8z" opacity="0.5"/>
-
-          <!-- Main fingerprint pattern -->
-          <path d="M12 5.5c-3.59 0-6.5 2.91-6.5 6.5s2.91 6.5 6.5 6.5 6.5-2.91 6.5-6.5-2.91-6.5-6.5-6.5z"/>
-
-          <!-- Central loop -->
-          <path d="M11 9c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
-          <path d="M13 9c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2z"/>
-
-          <!-- Bottom ridge pattern -->
-          <path d="M10.5 13c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5"/>
+        <svg class="w-8 h-8 text-[var(--apple-blue)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+          <!-- Fingerprint ridges -->
+          <path d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2z" opacity="0.2"/>
+          <!-- Ridge lines -->
+          <path d="M8 8c0 2 1.5 3.5 4 3.5s4-1.5 4-3.5"/>
+          <path d="M7.5 11c0 2.2 1.8 4 4 4s4-1.8 4-4"/>
+          <path d="M7 14c0 2.5 2 4.5 5 4.5s5-2 5-4.5"/>
+          <path d="M6.5 17c0 1.8 2.2 3.5 5.5 3.5s5.5-1.7 5.5-3.5"/>
+          <!-- Center whorl -->
+          <circle cx="12" cy="12" r="2.5" fill="currentColor" opacity="0.6"/>
         </svg>
+        <!-- Scan line -->
+        <div class="absolute inset-0 fingerprint-scan pointer-events-none">
+          <div class="absolute w-full h-0.5 bg-gradient-to-r from-transparent via-[var(--apple-blue)] to-transparent" style="top: 50%; opacity: 0.6;"></div>
+        </div>
       </div>
       <div>
         <h3 id="touchModalTitle" class="text-base font-semibold text-[var(--apple-label)]">Chạm vân tay xác nhận</h3>
@@ -1378,32 +1369,28 @@
 
       if (iconEl) {
         if (icon === '👆') {
-          // Apple Touch ID fingerprint SVG icon
+          // Apple Touch ID fingerprint with scan line
           iconEl.innerHTML = `<style>
-            @keyframes fingerprint-scan {
-              0% { opacity: 0.4; transform: scale(0.8); }
-              50% { opacity: 1; transform: scale(1); }
-              100% { opacity: 0.4; transform: scale(0.8); }
+            @keyframes scan-up {
+              0% { transform: translateY(20px); opacity: 0; }
+              50% { opacity: 1; }
+              100% { transform: translateY(-20px); opacity: 0; }
             }
-            @keyframes glow-pulse {
-              0%, 100% { filter: drop-shadow(0 0 4px rgba(0, 122, 255, 0.3)); }
-              50% { filter: drop-shadow(0 0 12px rgba(0, 122, 255, 0.6)); }
-            }
-            .fingerprint-icon {
-              animation: fingerprint-scan 2s ease-in-out infinite;
-            }
-            .fingerprint-glow {
-              animation: glow-pulse 2s ease-in-out infinite;
+            .fingerprint-scan {
+              animation: scan-up 2s ease-in-out infinite;
             }
           </style>
-          <svg class="w-8 h-8 text-[var(--apple-blue)] fingerprint-icon fingerprint-glow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" opacity="0.3"/>
-            <path d="M12 4c-4.41 0-8 3.59-8 8s3.59 8 8 8 8-3.59 8-8-3.59-8-8-8z" opacity="0.5"/>
-            <path d="M12 5.5c-3.59 0-6.5 2.91-6.5 6.5s2.91 6.5 6.5 6.5 6.5-2.91 6.5-6.5-2.91-6.5-6.5-6.5z"/>
-            <path d="M11 9c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
-            <path d="M13 9c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2z"/>
-            <path d="M10.5 13c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5"/>
-          </svg>`;
+          <svg class="w-8 h-8 text-[var(--apple-blue)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2z" opacity="0.2"/>
+            <path d="M8 8c0 2 1.5 3.5 4 3.5s4-1.5 4-3.5"/>
+            <path d="M7.5 11c0 2.2 1.8 4 4 4s4-1.8 4-4"/>
+            <path d="M7 14c0 2.5 2 4.5 5 4.5s5-2 5-4.5"/>
+            <path d="M6.5 17c0 1.8 2.2 3.5 5.5 3.5s5.5-1.7 5.5-3.5"/>
+            <circle cx="12" cy="12" r="2.5" fill="currentColor" opacity="0.6"/>
+          </svg>
+          <div class="absolute inset-0 fingerprint-scan pointer-events-none">
+            <div class="absolute w-full h-0.5 bg-gradient-to-r from-transparent via-[var(--apple-blue)] to-transparent" style="top: 50%; opacity: 0.6;"></div>
+          </div>`;
         } else {
           iconEl.textContent = icon;
         }
