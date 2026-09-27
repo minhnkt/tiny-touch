@@ -14,9 +14,10 @@
 
 - **Chế độ kép (Dual Mode):**
   - **HID Mode (USB Keyboard):** Tự động gõ mật khẩu siêu tốc ngay khi chạm ngón tay hợp lệ (hỗ trợ màn hình khóa macOS/Windows, 1Password, Bitwarden, Terminal `sudo`).
-  - **PIV Mode (SmartCard):** Giả lập thẻ thông minh chuẩn NIST PIV / Apple Native SmartCard cho xác thực chứng chỉ số X.509 phần cứng.
+  - **PIV Mode (SmartCard):** Giả lập thẻ thông minh chuẩn NIST PIV / Apple Native SmartCard cho xác thực chứng chỉ số X.509 phần cứng (PIN mặc định `754321`, liên kết tài khoản qua `sc_auth`).
+- **Tùy biến Aura Breathing LED:** Cá nhân hóa màu sắc nhịp thở LED cảm biến vân tay riêng biệt cho từng chế độ HID (mặc định Xanh ngọc ➔ Xanh lam) và PIV (mặc định Vàng kim ➔ Đỏ hổ phách) từ bảng 7 màu RGB phần cứng.
 - **Tự động xử lý Caps Lock:** Tự động phát hiện trạng thái Caps Lock của máy chủ qua USB HID Output Report và đảo ngược ký tự hoa/thường, đảm bảo không bao giờ gõ sai mật khẩu.
-- **Web Serial Controller:** Giao diện web phong cách macOS Glass (hỗ trợ Light/Dark mode) kết nối trực tiếp thiết bị qua Web Serial API (Chrome/Edge) không cần cài driver hay phần mềm nền.
+- **Web Serial Controller:** Giao diện web phong cách macOS Glass (hỗ trợ Light/Dark mode) kết nối trực tiếp thiết bị qua Web Serial API (Chrome/Edge), tích hợp sẵn công cụ nạp firmware Serial OTA và quản trị mã PIN PIV với SVG icon động.
 - **Web Host Challenge-Response Pairing:** Cơ chế ghép nối máy chủ an toàn sử dụng Web Crypto API (HMAC SHA-256), mật khẩu được bảo vệ và chỉ nhả qua thiết bị khi có phản hồi xác thực hợp lệ từ máy chủ đã ghép nối.
 - **USB Remote Wakeup:** Chạm vân tay để đánh thức máy tính từ chế độ ngủ (Sleep) và tự động chờ màn hình sáng trước khi gõ.
 - **Bộ nhớ bảo mật:** Cấu hình lưu trữ trong NVS Flash mã hóa, mẫu vân tay lưu độc lập trong bộ nhớ của cảm biến.
@@ -42,6 +43,7 @@ tiny-touch/
 │   └── README.md            # Hướng dẫn build, nạp và lệnh Console
 │
 ├── docs/                    # Tài liệu kỹ thuật chi tiết
+│   ├── BUILD_AND_FLASH.md   # Hướng dẫn biên dịch & nạp firmware (OTA & ROM Bootloader)
 │   ├── HARDWARE.md          # Sơ đồ nối dây & hàn chi tiết (SW111/SW101), BOM, file in 3D
 │   ├── PROTOCOL.md          # Đặc tả giao thức Serial CDC & Challenge-Response
 │   ├── BAO_CAO_NGHIEP_VU.md # Báo cáo phân tích nghiệp vụ hệ thống
@@ -104,7 +106,7 @@ idf.py build
 idf.py -p /dev/cu.usbmodem101 flash
 ```
 
-Chi tiết xem tại [firmware/README.md](firmware/README.md).
+Chi tiết hướng dẫn nạp firmware (bao gồm nạp Serial OTA qua Web Controller và nạp ROM Bootloader) xem tại [docs/BUILD_AND_FLASH.md](docs/BUILD_AND_FLASH.md) và [firmware/README.md](firmware/README.md).
 
 ---
 

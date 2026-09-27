@@ -112,9 +112,10 @@ Cảm biến vân tay tròn (SW111, Grow R503) tích hợp vòng đèn LED RGB c
 
 | Màu sắc LED | Trạng thái thiết bị | Ý nghĩa & Hành vi chi tiết |
 |:---|:---|:---|
-| 🔵 **Xanh ngọc & Xanh dương (Cyan - Blue)** | **Chờ (Idle / Standby)** | Hiệu ứng nhịp thở (Breathing Pulse) phỏng theo Siri, chuyển đổi ánh sáng mượt mà giữa Cyan và Blue. Cảm biến sẵn sàng nhận diện hoặc đang chờ đặt ngón tay trong quy trình lấy mẫu (Enroll). |
-| 🟢 **Xanh lá (Green)** | **Thành công (Success / Match OK)** | Nhận diện vân tay trùng khớp hợp lệ với một trong các Slot đã đăng ký, hoặc hoàn thành một bước/chu kỳ lấy mẫu vân tay mới. Đèn sáng xanh trong 350ms rồi tự động chuyển về xanh dương. |
-| 🔴 **Đỏ (Red)** | **Lỗi / Không khớp (Error / Mismatch)** | Vân tay đặt vào không khớp với bất kỳ Slot nào trong bộ nhớ, ngón tay nhấc ra quá sớm khiến cảm biến chụp lỗi, hoặc quy trình đăng ký thất bại. Đèn sáng đỏ cảnh báo trong 350ms rồi tự động chuyển về xanh dương. |
+| 🔵 / 🟡 **Tùy biến Aura Breathing** | **Chờ (Idle / Standby)** | Hiệu ứng nhịp thở (Breathing Pulse) chuyển đổi ánh sáng mượt mà giữa cặp màu bắt đầu và kết thúc. Có thể tùy chỉnh riêng biệt theo chế độ:<br>• **HID Mode (mặc định):** Cyan ➔ Blue (mã `3 1`).<br>• **PIV Mode (mặc định):** Yellow ➔ Red (mã `6 4`).<br>• Tùy chọn 7 màu RGB (`1`: Blue, `2`: Green, `3`: Cyan, `4`: Red, `5`: Purple, `6`: Yellow, `7`: White) qua Web Controller hoặc lệnh `SET LED_HID` / `SET LED_PIV`. |
+| 🟢 **Xanh lá (Green)** | **Thành công (Success / Match OK)** | Nhận diện vân tay trùng khớp hợp lệ với một trong các Slot đã đăng ký, hoặc hoàn thành một bước/chu kỳ lấy mẫu vân tay mới. Đèn sáng xanh trong 350ms rồi tự động chuyển về nhịp thở trạng thái chờ. |
+| 🔴 **Đỏ (Red)** | **Lỗi / Không khớp (Error / Mismatch)** | Vân tay đặt vào không khớp với bất kỳ Slot nào trong bộ nhớ, ngón tay nhấc ra quá sớm khiến cảm biến chụp lỗi, hoặc quy trình đăng ký thất bại. Đèn sáng đỏ cảnh báo trong 350ms rồi tự động chuyển về nhịp thở trạng thái chờ. |
+| 🟣 **Tím / Chớp nháy (Prompt)** | **Yêu cầu xác thực (Auth Required)** | Đèn nhấp nháy chuyển trạng thái khi thiết bị nhận lệnh quản trị `AUTH` hoặc nạp OTA, nhắc người dùng chạm vân tay hợp lệ vào cảm biến để cấp quyền. |
 
 ---
 

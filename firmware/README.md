@@ -77,6 +77,10 @@ File nhị phân sau khi build thành công sẽ nằm tại: `firmware/build/ti
 
 ### 4. Nạp firmware (Flash)
 
+Hệ thống hỗ trợ 2 phương pháp nạp:
+1. **Serial OTA qua Web Controller / Python script (Khuyên dùng):** Nạp trực tiếp qua cổng CDC không cần tháo vỏ thiết bị hay giữ nút vật lý. Xem hướng dẫn chi tiết tại [docs/BUILD_AND_FLASH.md](../docs/BUILD_AND_FLASH.md).
+2. **ROM Bootloader qua `idf.py flash` (Cứu hộ):** Dùng khi nạp mạch trắng hoặc khôi phục thiết bị:
+
 Xác định cổng Serial của ESP32-S3:
 - macOS: `ls /dev/cu.usbmodem*`
 - Linux: `ls /dev/ttyACM*`
@@ -106,17 +110,28 @@ idf.py -p /dev/cu.usbmodem101 flash monitor
 
 ## Danh mục lệnh Console Serial CDC (115200 baud)
 
-Giao thức truyền dòng văn bản kết thúc bằng ký tự `\n` hoặc `\r\n`:
+Giao thức truyền dòng văn bản kết thúc bằng ký tự `\n` hoặc `\r\n`. Đối với các lệnh thay đổi cấu hình hoặc nạp firmware, thiết bị yêu cầu mở phiên ủy quyền qua lệnh `AUTH` kèm chạm vân tay xác thực (hiệu lực 15 giây):
 
 | Lệnh | Ý nghĩa | Phản hồi mẫu |
 |:-----|:--------|:-------------|
-| `STATUS` | Lấy telemetry trạng thái thiết bị | `OK STATUS mode=HID fps=1 sensor=OK fw=v0.1.28 hosts=1` |
-| `ENROLL <id>` | Bắt đầu quy trình lấy mẫu vân tay cho Slot `<id>` (1-5) | `OK ENROLL_START slot=1` theo sau là các bước quét |
-| `VERIFY` | Thử quét và nhận diện vân tay | `OK VERIFIED slot=1` hoặc `ERR NOT_MATCH` |
-| `LIST` | Liệt kê danh sách slot đã đăng ký | `OK LIST 1:Admin, 2:Work` |
-| `DELETE <id>` | Xóa vân tay tại slot chỉ định | `OK DELETED slot=1` |
-| `SET_MODE <HID\|PIV>` | Chuyển chế độ hoạt động | `OK MODE_CHANGED to=HID` |
-| `SET_KEY_SEQ <sequence>` | Cài đặt chuỗi phím kết thúc (vd: `SUBMIT_ENTER`) | `OK KEY_SEQ_SAVED` |
-| `CLEAR_KEYS` | Xóa chuỗi phím kết thúc | `OK KEYS_CLEARED` |
-| `HOST LIST` | Liệt kê các máy chủ đã ghép nối | `OK HOSTS count=1` |
-| `RESET FACTORY` | Khôi phục cài đặt gốc | `OK FACTORY_RESET_COMPLETE` |
+| `STATUS` | Lấy telemetry trạng thái thiết bị (Protocol v7) | `OK STATUS protocol=7 firmware=0.1.28 build=... mode=HID piv=ready sensor=ready fingerprints=2 hosts=1 enter=1 delay=25 led_hid=3,1 led_piv=6,4 ota=idle` |
+| `AUTH` | Mở phiên ủy quyền quản trị 15s (chạm vân tay xác thực) | `OK AUTH` |
+| `SET MODE <HID\|PIV>` | Chuyển chế độ hoạt động chính | `OK SET MODE` |
+| `SET LED_HID <start> <end>` | Đặt cặp màu thở LED cho chế độ HID (1-7) | `OK SET` |
+| `SET LED_PIV <start> <end>` | Đặt cặp màu thở LED cho chế độ PIV (1-7) | `OK SET` |
+| `SET TYPE_DELAY <ms>` | Cài đặt độ trễ gõ giữa các ký tự (ms) | `OK SET` |
+| `SET SUBMIT_ENTER <0\|1>` | Bật (1) / Tắt (0) tự động nhấn Enter sau khi gõ mật khẩu | `OK SET` |
+| `SET COOLDOWN <ms>` | Đặt thời gian nghỉ chống quét lặp lại (ms) | `OK SET` |
+| `FINGER ENROLL <id>` | Bắt đầu quy trình lấy mẫu vân tay cho Slot 1-5 | `OK FINGER` (kèm các sự kiện `EVT ENROLL_STEP`) |
+| `FINGER DELETE <id>` | Xóa vân tay tại slot chỉ định khỏi cảm biến | `OK FINGER` |
+| `FINGER CLEAR` | Xóa toàn bộ vân tay trong bộ nhớ cảm biến | `OK FINGER` |
+| `HOST ADD <id> <secret>` | Đăng ký máy chủ ghép nối an toàn (Challenge-Response) | `OK HOST ADD` |
+| `HOST REMOVE <id>` | Xóa máy chủ khỏi danh sách ghép nối | `OK HOST REMOVE` |
+| `HOST LIST` | Liệt kê danh sách ID máy chủ đã ghép nối | `OK HOST LIST ids=... capacity=8` |
+| `PIV CREATE` | Sinh lại cặp khóa RSA và chứng chỉ PIV X.509 mới | `OK PIV CREATE` |
+| `USB RECONNECT` | Kích hoạt quét lại USB CCID SmartCard trên máy chủ | `OK USB RECONNECT` |
+| `RESET FACTORY` | Khôi phục cài đặt gốc, xóa sạch NVS và vân tay | `OK RESET FACTORY` |
+| `OTA BEGIN <tok> <sz> <hash>` | Bắt đầu phiên nạp firmware OTA | `OK OTA BEGIN next=0` |
+| `OTA WRITE <tok> <off> <b64>` | Ghi khối nhị phân firmware Base64 | `OK OTA WRITE next=...` |
+| `OTA COMMIT <tok>` | Xác thực hash SHA-256 và kích hoạt firmware mới | `OK OTA COMMIT` |
+| `OTA ABORT [tok]` | Hủy bỏ phiên nạp OTA | `OK OTA ABORT` |

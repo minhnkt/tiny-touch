@@ -73,11 +73,28 @@ Cấu hình cặp màu thở đèn LED vòng cảm biến cho chế độ HID ho
 - Thiết bị lưu cấu hình vào Flash NVS và lập tức cập nhật hiệu ứng thở trên vòng cảm biến.
 - **Phản hồi:** `OK SET` hoặc `ERR SET`
 
-#### `SET_MODE <HID|PIV>`
-Thay đổi chế độ hoạt động chính.
-- `SET_MODE HID`: Chuyển sang chế độ giả lập bàn phím tự gõ mật khẩu (Vòng LED thở Cyan - Xanh lam).
-- `SET_MODE PIV`: Chuyển sang chế độ SmartCard X.509 (Vòng LED thở Vàng kim - Đỏ ấm hổ phách).
-- **Phản hồi:** `OK MODE_CHANGED to=<MODE>`
+#### `AUTH`
+Yêu cầu mở phiên ủy quyền quản trị (hiệu lực 15 giây) để thực hiện các thao tác nhạy cảm (`SET`, `FINGER`, `HOST`, `PIV CREATE`, `OTA`).
+- Thiết bị nhấp nháy đèn LED yêu cầu người dùng chạm vân tay đã đăng ký vào cảm biến để xác nhận.
+- **Phản hồi:** `OK AUTH` (thành công) hoặc `ERR AUTH` (thất bại/hết thời gian).
+
+#### `SET MODE <HID|PIV>`
+Thay đổi chế độ hoạt động chính (yêu cầu quyền `AUTH`).
+- `SET MODE HID`: Chuyển sang chế độ giả lập bàn phím tự gõ mật khẩu (Vòng LED thở theo cấu hình `led_hid`, mặc định Cyan - Blue).
+- `SET MODE PIV`: Chuyển sang chế độ SmartCard X.509 (Vòng LED thở theo cấu hình `led_piv`, mặc định Yellow - Red).
+- **Phản hồi:** `OK SET MODE` hoặc `ERR SET MODE`
+
+#### `SET TYPE_DELAY <ms>`
+Cài đặt thời gian trễ gõ giữa các ký tự bàn phím USB HID (ms, mặc định 25ms).
+- **Phản hồi:** `OK SET`
+
+#### `SET SUBMIT_ENTER <0|1>`
+Bật (`1`) hoặc tắt (`0`) tính năng tự động nhấn phím Enter sau chuỗi mật khẩu.
+- **Phản hồi:** `OK SET`
+
+#### `SET COOLDOWN <ms>`
+Đặt thời gian trễ nghỉ chống quét lặp lại sau mỗi lần chạm vân tay (ms).
+- **Phản hồi:** `OK SET`
 
 #### `SET_KEY_SEQ <sequence>`
 Cài đặt chuỗi phím bấm tự động sau khi gõ xong chuỗi mật khẩu.
@@ -89,22 +106,28 @@ Cài đặt chuỗi phím bấm tự động sau khi gõ xong chuỗi mật kh�
   - `SUBMIT_NONE`: Không nhấn bất kỳ phím nào sau khi gõ.
 - **Phản hồi:** `OK KEY_SEQ_SAVED`
 
-#### `CLEAR_KEYS`
-Xóa toàn bộ cấu hình phím kết thúc về mặc định.
-- **Phản hồi:** `OK KEYS_CLEARED`
+#### `PIV CREATE`
+Kích hoạt sinh mới cặp khóa RSA-2048 nội bộ và tạo lại chứng chỉ số PIV X.509 lưu vào NVS (yêu cầu quyền `AUTH`).
+- Thiết bị phát sự kiện `EVENT PIV_CREATE` và phản hồi `OK PIV CREATE` sau khi hoàn tất.
+
+#### `USB RECONNECT`
+Kích hoạt quét lại USB CCID SmartCard trên máy tính chủ (hỗ trợ macOS tự động nhận token sau khi cấu hình).
+- **Phản hồi:** `OK USB RECONNECT`
 
 #### `RESET FACTORY`
-Khôi phục cài đặt gốc, xóa toàn bộ NVS và danh sách Host Pairing (lưu ý: không tự xóa mẫu vân tay nếu không có lệnh xóa cảm biến).
-- **Phản hồi:** `OK FACTORY_RESET_COMPLETE`
+Khôi phục cài đặt gốc, xóa toàn bộ NVS, danh sách Host Pairing và mẫu vân tay trong cảm biến (yêu cầu quyền `AUTH`).
+- **Phản hồi:** `OK RESET FACTORY`
 
 ---
 
 ### 3.2. Quản lý sinh trắc học vân tay
 
-#### `ENROLL <slot_id>`
+Tất cả các lệnh quản lý vân tay yêu cầu phiên ủy quyền `AUTH` trước khi thực thi:
+
+#### `FINGER ENROLL <slot_id>`
 Bắt đầu quy trình lấy mẫu vân tay cho Slot từ `1` đến `5`.
 - **Luồng sự kiện từng bước:**
-  1. `OK ENROLL_START slot=<id>`
+  1. `OK FINGER`
   2. `EVT ENROLL_STEP step=1/3 status=PLACE_FINGER` (Đặt ngón tay lần 1)
   3. `EVT ENROLL_STEP step=1/3 status=REMOVE_FINGER` (Nhấc ngón tay lên)
   4. `EVT ENROLL_STEP step=2/3 status=PLACE_FINGER` (Đặt ngón tay lần 2)
@@ -113,18 +136,38 @@ Bắt đầu quy trình lấy mẫu vân tay cho Slot từ `1` đến `5`.
   7. `OK ENROLL_SUCCESS slot=<id>` (Đăng ký thành công)
 - **Lỗi có thể xảy ra:** `ERR ENROLL_FAILED reason=<TIMEOUT|MISMATCH|SENSOR_BUSY>`
 
-#### `VERIFY`
-Kích hoạt cảm biến để kiểm tra nhận diện ngón tay thử nghiệm.
-- **Phản hồi thành công:** `OK VERIFIED slot=<id>`
-- **Phản hồi thất bại:** `ERR NOT_MATCH`
-
-#### `LIST`
-Liệt kê danh sách các Slot vân tay đang có dữ liệu trong cảm biến.
-- **Phản hồi:** `OK LIST slots=[1,2,5]`
-
-#### `DELETE <slot_id>`
+#### `FINGER DELETE <slot_id>`
 Xóa dữ liệu mẫu vân tay tại Slot chỉ định khỏi bộ nhớ cảm biến.
-- **Phản hồi:** `OK DELETED slot=<id>`
+- **Phản hồi:** `OK FINGER` hoặc `ERR FINGER`
+
+#### `FINGER CLEAR`
+Xóa toàn bộ các mẫu vân tay trong bộ nhớ cảm biến.
+- **Phản hồi:** `OK FINGER` hoặc `ERR FINGER`
+
+---
+
+### 3.3. Giao thức Nạp Firmware Serial OTA
+
+Quy trình nạp nhị phân firmware an toàn qua cổng CDC không cần nút BOOT vật lý:
+
+#### `OTA BEGIN <token> <size> <sha256>`
+Khởi tạo phiên nạp OTA (yêu cầu quyền `AUTH`):
+- `token`: Chuỗi hex ngẫu nhiên 32 ký tự định danh phiên nạp.
+- `size`: Kích thước file nhị phân (bytes).
+- `sha256`: Mã băm SHA-256 (64 ký tự hex) của toàn bộ file binary để kiểm tra toàn vẹn sau khi ghi.
+- **Phản hồi:** `OK OTA BEGIN next=0`
+
+#### `OTA WRITE <token> <offset> <base64_data>`
+Ghi một khối nhị phân (tối đa 3072 bytes mã hóa Base64) vào phân vùng flash:
+- **Phản hồi:** `OK OTA WRITE next=<next_offset>`
+
+#### `OTA COMMIT <token>`
+Hoàn tất nạp, thiết bị tự động đối soát mã băm SHA-256 của toàn bộ ảnh vừa ghi trong Flash. Nếu khớp, thiết bị chuyển trạng thái boot sang phân vùng mới và khởi động lại:
+- **Phản hồi:** `OK OTA COMMIT` (hoặc `ERR OTA COMMIT` nếu sai mã hash)
+
+#### `OTA ABORT [token]`
+Hủy bỏ phiên nạp hiện hành và dọn dẹp bộ nhớ tạm.
+- **Phản hồi:** `OK OTA ABORT`
 
 ---
 
