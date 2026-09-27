@@ -215,7 +215,14 @@ Khi ở chế độ PIV (`SET_MODE PIV`), ngoài giao diện USB CDC để cấu
 
 ### 5.3. Quy trình ghép đôi (Pairing) PIV SmartCard trên macOS
 
-Mã PIN mặc định của thẻ PIV trong firmware: **`754321`** (6 chữ số).
+Mã PIN mặc định của thẻ PIV trong firmware: **`754321`** (6 chữ số; ở bản gốc là `111111`).
+
+> **Tùy biến mã PIN trước khi build:**
+> Để thay đổi mã PIN này trước khi biên dịch lại firmware, cần sửa đồng bộ tại:
+> - `firmware/main/piv.c` (Dòng 566 - 568: `expected_pin[8]`).
+> - `firmware/main/touch_pin_hid.c` (Dòng 377: `piv_pin[]`).
+> - `controller/index.html` (Dòng 2222, 2253, 2265: hiển thị và nút sao chép PIN trên Web UI).
+> Chi tiết xem tại [BUILD_AND_FLASH.md](./BUILD_AND_FLASH.md#2-tùy-biến-mã-pin-smartcard-piv-tùy-chọn-trước-khi-build).
 
 #### Các bước khởi tạo và liên kết tài khoản:
 
