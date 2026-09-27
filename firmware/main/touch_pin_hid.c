@@ -487,7 +487,6 @@ static void touch_hid_task(void *arg) {
 
     runtime.presence_armed = false;
     touch_pin_hid_log_event("touch_detected", 0);
-    power_mgmt_note_activity();
     fingerprint_match_t match = fingerprint_authorize_poll_match();
     if (match.slot == 0) {
       touch_pin_hid_log_event("finger_no_match", 0);
