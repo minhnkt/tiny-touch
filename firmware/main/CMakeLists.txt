@@ -9,6 +9,7 @@ idf_component_register(
     "touch_pin_hid.c"
     "usb_ccid.c"
     "usb_descriptors.c"
+    "ble_service.c"
   INCLUDE_DIRS "."
   REQUIRES app_update driver esp_partition esp_timer esp_tinyusb mbedtls nvs_flash bt
   PRIV_REQUIRES esp_driver_uart
