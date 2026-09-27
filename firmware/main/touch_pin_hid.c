@@ -84,13 +84,12 @@ static bool wait_hid_ready(void) {
 }
 
 bool transport_is_usb_active(void) {
-  return tud_mounted();
+  return tud_mounted() && !tud_suspended();
 }
 
 bool transport_send_key(uint8_t modifier, uint8_t key) {
   uint8_t keycodes[6] = {key, 0, 0, 0, 0, 0};
-  if (transport_is_usb_active()) {
-    if (!wait_hid_ready()) return false;
+  if (transport_is_usb_active() && tud_hid_ready()) {
     if (!tud_hid_keyboard_report(0, modifier, keycodes)) return false;
     vTaskDelay(pdMS_TO_TICKS(device_config_typing_delay_ms()));
     if (!wait_hid_ready()) return false;
@@ -102,7 +101,7 @@ bool transport_send_key(uint8_t modifier, uint8_t key) {
     if (!ble_service_send_keyboard_report(modifier, keycodes)) return false;
     vTaskDelay(pdMS_TO_TICKS(device_config_typing_delay_ms()));
     uint8_t empty[6] = {0};
-    ble_service_send_keyboard_report(0, empty);
+    if (!ble_service_send_keyboard_report(0, empty)) return false;
     vTaskDelay(pdMS_TO_TICKS(device_config_typing_delay_ms()));
     return true;
   }
