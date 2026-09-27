@@ -315,6 +315,15 @@ static bool request_and_type_password(fingerprint_match_t match) {
   bytes_to_hex(nonce_bytes, sizeof(nonce_bytes), nonce);
   event_counter++;
   xQueueReset(password_responses);
+  if (!transport_is_usb_active()) {
+    for (int wait = 0; !ble_service_is_connected() && wait < 30; wait++) {
+      vTaskDelay(pdMS_TO_TICKS(100));
+    }
+    // Allow brief window for encryption handshake
+    if (ble_service_is_connected()) {
+      vTaskDelay(pdMS_TO_TICKS(100));
+    }
+  }
   if (host_count == 1) {
     snprintf(material, sizeof(material), "EV|%s|%lu|%u|%u", nonce,
              (unsigned long)event_counter, match.slot, match.score);

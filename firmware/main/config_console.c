@@ -467,7 +467,7 @@ void config_console_feed_ble_input(const uint8_t *data, size_t len) {
   if (!data || len == 0 || !ble_rx_mutex) return;
   power_mgmt_note_activity();
 
-  if (xSemaphoreTake(ble_rx_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
+  if (xSemaphoreTake(ble_rx_mutex, pdMS_TO_TICKS(20)) != pdTRUE) {
     return;
   }
 
@@ -479,15 +479,12 @@ void config_console_feed_ble_input(const uint8_t *data, size_t len) {
         ble_cmd_overflow_flag = true;
       } else if (ble_rx_len > 0) {
         ble_rx_line[ble_rx_len] = '\0';
-        for (int wait = 0; ble_cmd_pending && wait < 5; wait++) {
-          xSemaphoreGive(ble_rx_mutex);
-          vTaskDelay(pdMS_TO_TICKS(10));
-          if (xSemaphoreTake(ble_rx_mutex, pdMS_TO_TICKS(50)) != pdTRUE) {
-            return;
-          }
+        if (!ble_cmd_pending) {
+          memcpy(ble_pending_cmd, ble_rx_line, ble_rx_len + 1);
+          ble_cmd_pending = true;
+        } else {
+          ble_cmd_overflow_flag = true;
         }
-        memcpy(ble_pending_cmd, ble_rx_line, ble_rx_len + 1);
-        ble_cmd_pending = true;
       }
       ble_rx_len = 0;
       ble_rx_overflow = false;

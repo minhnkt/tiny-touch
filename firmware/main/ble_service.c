@@ -39,10 +39,9 @@ __attribute__((weak)) void config_console_feed_ble_input(const uint8_t *data, si
 // -----------------------------------------------------------------------------
 static uint16_t s_conn_handle = BLE_HS_CONN_HANDLE_NONE;
 static bool s_is_connected = false;
-static bool s_is_encrypted = false;
 static uint8_t s_own_addr_type = 0;
 static bool s_sync_done = false;
-static bool s_adv_enabled = false;
+static bool s_adv_enabled = true;
 static bool s_allow_new_pairing = false;
 
 // Characteristic Value Handles
@@ -413,7 +412,6 @@ static int ble_service_gap_event(struct ble_gap_event *event, void *arg) {
       if (event->connect.status == 0) {
         s_conn_handle = event->connect.conn_handle;
         s_is_connected = true;
-        s_is_encrypted = false;
 
         // Apply Apple/Windows compliant connection parameters:
         // itvl_min = 24 (30ms), itvl_max = 40 (50ms), latency = 20, supervision_timeout = 400 (4000ms)
@@ -431,7 +429,6 @@ static int ble_service_gap_event(struct ble_gap_event *event, void *arg) {
         ble_gap_security_initiate(s_conn_handle);
       } else {
         s_is_connected = false;
-        s_is_encrypted = false;
         s_conn_handle = BLE_HS_CONN_HANDLE_NONE;
         if (s_adv_enabled) {
           ble_service_setup_and_start_adv();
@@ -443,7 +440,6 @@ static int ble_service_gap_event(struct ble_gap_event *event, void *arg) {
       ESP_LOGI(TAG, "BLE disconnect event reason=%d", event->disconnect.reason);
       s_conn_handle = BLE_HS_CONN_HANDLE_NONE;
       s_is_connected = false;
-      s_is_encrypted = false;
       if (s_adv_enabled) {
         ble_service_setup_and_start_adv();
       }
@@ -455,9 +451,6 @@ static int ble_service_gap_event(struct ble_gap_event *event, void *arg) {
 
     case BLE_GAP_EVENT_ENC_CHANGE:
       ESP_LOGI(TAG, "BLE encryption change status=%d", event->enc_change.status);
-      if (event->enc_change.status == 0) {
-        s_is_encrypted = true;
-      }
       return 0;
 
     case BLE_GAP_EVENT_ADV_COMPLETE:
@@ -640,6 +633,7 @@ void ble_service_send_console_line(const char *line) {
     }
     int rc = ble_gatts_notify_custom(s_conn_handle, s_nus_tx_val_handle, om);
     if (rc != 0) {
+      os_mbuf_free_chain(om);
       break;
     }
     ptr += send_len;

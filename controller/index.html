@@ -1754,7 +1754,11 @@
         try {
           const encoder = new TextEncoder();
           const bytes = encoder.encode(cleanCmd + '\n');
-          await state.bleRxChar.writeValueWithoutResponse(bytes);
+          const chunkSize = 20;
+          for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+            const chunk = bytes.slice(offset, offset + chunkSize);
+            await state.bleRxChar.writeValueWithoutResponse(chunk);
+          }
         } catch (err) {
           log(`Lỗi truyền BLE: ${err.message}`, 'error');
           if (state.connected) {
