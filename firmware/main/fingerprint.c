@@ -23,7 +23,6 @@ static const uint8_t FP_LED_BLUE = 0x01;
 static const uint8_t FP_LED_GREEN = 0x02;
 static const uint8_t FP_LED_CYAN = 0x03;
 static const uint8_t FP_LED_RED = 0x04;
-static const uint8_t FP_LED_PURPLE = 0x05;
 static const uint8_t FP_LED_FUNC_BREATH = 1;
 static const uint8_t FP_LED_FUNC_STEADY = 3;
 
