@@ -83,12 +83,15 @@ Cấu hình chuỗi phím tự động bấm sau khi điền xong mật khẩu:
 
 ---
 
-## 3. CẤU TRÚC BẢN CLONE LOCAL
-- `index.html`: Chuyển hướng tự động vào `controller/index.html`.
-- `controller/index.html`: Bản cài đặt hoàn chỉnh chạy offline/local:
-  - Tích hợp Tailwind CSS (CDN/Local styling), giao diện Dark Theme cao cấp đồng nhất với bản gốc.
-  - Hỗ trợ Web Serial thật khi cắm phần cứng tinyTouch.
-  - Tích hợp **Hardware Simulator Mode (Giả lập phần cứng)**: Cho phép trải nghiệm toàn bộ tính năng kết nối, chuyển chế độ, đổi chuỗi phím, quản lý 5 ngón tay và nạp firmware kể cả khi chưa cắm thiết bị thật.
+## 3. KIẾN TRÚC & PHÂN BỔ ỨNG DỤNG WEB CONTROLLER
+Ứng dụng Web Controller được thiết kế theo tiêu chí Zero Build Tools, vận hành độc lập và giao tiếp trực tiếp 100% với phần cứng:
+- `index.html`: Điểm điều hướng chính, tự động chuyển tiếp người dùng vào `controller/index.html`.
+- `controller/index.html`: Ứng dụng Web Controller hoàn chỉnh (Pure HTML5 / Modern Vanilla JS / CSS3):
+  - **Apple Glass UI:** Giao diện phong cách Apple System Settings (macOS Tahoe/Sequoia) với hiệu ứng kính mờ (frosted glass), tương thích đầy đủ Light Mode và Dark Mode.
+  - **Tương tác phần cứng thực tế qua Web Serial API:** Kết nối trực tiếp cổng USB CDC-ACM của ESP32-S3 ở tốc độ `115200` baud (8-N-1). Hệ thống không dùng giả lập (Simulator), mọi lệnh và phản hồi đều gắn liền với trạng thái phần cứng thực tế.
+  - **Tích hợp Web Crypto API:** Quản lý khóa ghép nối bảo mật (Host Pairing) bằng mã băm HMAC-SHA256 trong `localStorage`, tự động phản hồi gói tin thử thách của thiết bị để giải mã và gõ mật khẩu an toàn.
+  - **Serial Terminal Drawer:** Cửa sổ giám sát console tích hợp cho phép quan sát trực tiếp luồng dữ liệu TX/RX thời gian thực.
+  - **Tính di động cao (Portability):** Có thể triển khai trên bất kỳ nền tảng tĩnh nào (GitHub Pages, Cloudflare Pages, máy chủ web nội bộ) hoặc mở trực tiếp file trên trình duyệt Chromium mà không cần backend hay driver cài đặt.
 
 ---
 
