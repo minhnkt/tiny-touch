@@ -74,15 +74,6 @@ static const uint8_t s_hid_report_map[] = {
     0x95, 0x01,        //   Report Count (1)
     0x75, 0x08,        //   Report Size (8)
     0x81, 0x01,        //   Input (Const,Array,Abs) - Reserved byte
-    0x95, 0x05,        //   Report Count (5)
-    0x75, 0x01,        //   Report Size (1)
-    0x05, 0x08,        //   Usage Page (LEDs)
-    0x19, 0x01,        //   Usage Minimum (Num Lock)
-    0x29, 0x05,        //   Usage Maximum (Kana)
-    0x91, 0x02,        //   Output (Data,Var,Abs) - LED report
-    0x95, 0x01,        //   Report Count (1)
-    0x75, 0x03,        //   Report Size (3)
-    0x91, 0x01,        //   Output (Const,Array,Abs) - LED padding
     0x95, 0x06,        //   Report Count (6)
     0x75, 0x08,        //   Report Size (8)
     0x15, 0x00,        //   Logical Minimum (0)
@@ -237,10 +228,10 @@ static const struct ble_gatt_svc_def s_gatt_services[] = {
                 .flags = BLE_GATT_CHR_F_READ,
             },
             {
-                // Report Map: 0x2A4B (Read)
+                // Report Map: 0x2A4B (Read, Encrypted)
                 .uuid = BLE_UUID16_DECLARE(BLE_UUID_HOGP_REPORT_MAP),
                 .access_cb = ble_service_chr_access_hogp,
-                .flags = BLE_GATT_CHR_F_READ,
+                .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_READ_ENC,
             },
             {
                 // HID Control Point: 0x2A4C (Write Without Response)
@@ -249,15 +240,16 @@ static const struct ble_gatt_svc_def s_gatt_services[] = {
                 .flags = BLE_GATT_CHR_F_WRITE_NO_RSP,
             },
             {
-                // Input Report: 0x2A4D (Read / Notify) with Report Reference Descriptor
+                // Input Report: 0x2A4D (Read / Notify, Encrypted) with Report Reference Descriptor
                 .uuid = BLE_UUID16_DECLARE(BLE_UUID_HOGP_REPORT),
                 .access_cb = ble_service_chr_access_hogp,
                 .val_handle = &s_hid_report_val_handle,
-                .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
+                .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_READ_ENC |
+                         BLE_GATT_CHR_F_NOTIFY | BLE_GATT_CHR_F_NOTIFY_INDICATE_ENC,
                 .descriptors = (struct ble_gatt_dsc_def[]) {
                     {
                         .uuid = BLE_UUID16_DECLARE(BLE_UUID_REPORT_REF_DESC),
-                        .att_flags = BLE_ATT_F_READ,
+                        .att_flags = BLE_ATT_F_READ | BLE_ATT_F_READ_ENC,
                         .access_cb = ble_service_dsc_access_report_ref,
                     },
                     {0} // Terminator
@@ -353,11 +345,9 @@ static void ble_service_setup_and_start_adv(void) {
     device_name = "tinyTouch Key";
   }
 
-  // Primary Advertising Payload
+  // Primary Advertising Payload (28 bytes: Flags 3, Name 15, Appearance 4, UUIDs 6)
   struct ble_hs_adv_fields fields = {0};
   fields.flags = (s_allow_new_pairing ? BLE_HS_ADV_F_DISC_GEN : 0) | BLE_HS_ADV_F_BREDR_UNSUP;
-  fields.tx_pwr_lvl_is_present = 1;
-  fields.tx_pwr_lvl = BLE_HS_ADV_TX_PWR_LVL_AUTO;
   fields.name = (uint8_t *)device_name;
   fields.name_len = strlen(device_name);
   fields.name_is_complete = 1;
@@ -378,7 +368,7 @@ static void ble_service_setup_and_start_adv(void) {
     return;
   }
 
-  // Scan Response Data: NUS 128-bit Service UUID
+  // Scan Response Data: NUS 128-bit Service UUID + Tx Power Level (21 bytes total)
   struct ble_hs_adv_fields rsp_fields = {0};
   static const ble_uuid128_t rsp_uuids[] = {
       BLE_UUID128_INIT(0x9E, 0xCA, 0xDC, 0x24, 0x0E, 0xE5, 0xA9, 0xE0,
@@ -387,6 +377,8 @@ static void ble_service_setup_and_start_adv(void) {
   rsp_fields.uuids128 = (ble_uuid128_t *)rsp_uuids;
   rsp_fields.num_uuids128 = 1;
   rsp_fields.uuids128_is_complete = 1;
+  rsp_fields.tx_pwr_lvl_is_present = 1;
+  rsp_fields.tx_pwr_lvl = BLE_HS_ADV_TX_PWR_LVL_AUTO;
 
   rc = ble_gap_adv_rsp_set_fields(&rsp_fields);
   if (rc != 0) {
@@ -470,7 +462,7 @@ static int ble_service_gap_event(struct ble_gap_event *event, void *arg) {
 
     case BLE_GAP_EVENT_ADV_COMPLETE:
       ESP_LOGI(TAG, "BLE advertising complete reason=%d", event->adv_complete.reason);
-      if (s_allow_new_pairing && !s_is_connected) {
+      if (event->adv_complete.reason == BLE_HS_ETIMEOUT && s_allow_new_pairing && !s_is_connected) {
         // Pairing window expired; switch to non-discoverable mode
         s_allow_new_pairing = false;
         if (s_adv_enabled) {
