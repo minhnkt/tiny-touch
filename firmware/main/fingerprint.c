@@ -196,13 +196,15 @@ static void fp_give(void) {
 }
 
 static void set_aura(uint8_t color) {
-  uint8_t params[] = {FP_LED_FUNC_STEADY, color, color, 0};
+  uint8_t params[] = {FP_LED_FUNC_STEADY, 0, color, 0};
   uint8_t confirm = 0xff;
   fp_command(0x3c, params, sizeof(params), &confirm, NULL, NULL, 1000);
 }
 
-static void set_aura_breathing(uint8_t start_color, uint8_t end_color) {
-  uint8_t params[] = {FP_LED_FUNC_BREATH, start_color, end_color, 0};
+static void set_aura_breathing(uint8_t color, uint8_t speed) {
+  // Mode 1: Breathing light.
+  // params: [Function: 1, Speed: 0-255 (higher = slower/longer cycle), Color: 1-7, Cycles: 0 (infinite)]
+  uint8_t params[] = {FP_LED_FUNC_BREATH, speed, color, 0};
   uint8_t confirm = 0xff;
   fp_command(0x3c, params, sizeof(params), &confirm, NULL, NULL, 1000);
 }
@@ -210,12 +212,12 @@ static void set_aura_breathing(uint8_t start_color, uint8_t end_color) {
 static void show_result(bool ok) {
   set_aura(ok ? FP_LED_GREEN : FP_LED_RED);
   vTaskDelay(pdMS_TO_TICKS(350));
-  set_aura_breathing(FP_LED_CYAN, FP_LED_BLUE);
+  set_aura_breathing(FP_LED_CYAN, 0xc0);
 }
 
 void fingerprint_led_idle(void) {
   if (!fp_take(1000)) return;
-  set_aura_breathing(FP_LED_CYAN, FP_LED_BLUE);
+  set_aura_breathing(FP_LED_CYAN, 0xc0);
   fp_give();
 }
 
