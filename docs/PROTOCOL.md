@@ -132,3 +132,20 @@ Xóa dữ liệu mẫu vân tay tại Slot chỉ định khỏi bộ nhớ cảm
 2. **Challenge-Response:** Khi người dùng chạm ngón tay hợp lệ, tinyTouch phát sinh một giá trị ngẫu nhiên `nonce` 32-byte gửi lên cổng Serial.
 3. Trình duyệt nhận `CHALLENGE`, dùng khóa bí mật trong `localStorage` tính toán mã băm HMAC-SHA256 và gửi phản hồi `RESPONSE`.
 4. Sau khi xác thực đúng chữ ký từ máy tính chủ đã ghép nối, thiết bị mới kích hoạt bàn phím HID gõ chuỗi mật khẩu mở khóa.
+
+---
+
+## 5. Giao thức SmartCard PIV (USB CCID APDU)
+
+Khi ở chế độ PIV (`SET_MODE PIV`), ngoài giao diện USB CDC để cấu hình, thiết bị kích hoạt lớp giao diện **USB CCID** mô phỏng thẻ thông minh NIST PIV (FIPS 201 / SP 800-73) với Application Identifier (AID) `A0 00 00 03 08 00 00 10 00`.
+
+### 5.1. Cấu trúc Slot khóa & Chứng chỉ X.509
+- **Slot 9A (Authentication Key):** Cặp khóa RSA 2048-bit phục vụ xác thực người dùng, mở khóa màn hình máy tính (macOS CryptoTokenKit / Windows SmartCard Logon), SSH và lệnh `sudo`.
+- **Slot 9D (Key Management Key):** Cặp khóa RSA 2048-bit dùng để giải mã dữ liệu bảo mật (như macOS Login Keychain wrapper).
+
+### 5.2. Luồng xác thực APDU không truyền mật khẩu
+1. Hệ điều hành gửi lệnh APDU `GENERAL AUTHENTICATE` (INS `0x87`, P1 `0x07`, P2 `0x9A` hoặc `0x9D`) mang dữ liệu thử thách ngẫu nhiên tới thiết bị qua USB CCID.
+2. Firmware kiểm tra điều kiện hiện diện sinh trắc học (**Biometric User Presence**): Yêu cầu người dùng chạm vân tay hợp lệ trong cửa sổ thời gian cho phép.
+3. Khi vân tay hợp lệ, thư viện mbedTLS trên ESP32-S3 trực tiếp thực hiện phép ký số nội bộ (`mbedtls_rsa_private`) với Private Key tương ứng trong bộ nhớ chip.
+4. Chữ ký số RSA (256 bytes) được đóng gói trong phản hồi APDU (Tag `0x7C` / `0x82`) gửi lại cho hệ điều hành đối soát với Public Key. Private Key không bao giờ bị xuất ra ngoài thiết bị.
+
