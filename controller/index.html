@@ -279,6 +279,16 @@
           <span id="themeIcon">☀️</span>
         </button>
 
+        <!-- Battery Level Indicator (BLE) -->
+        <div id="batteryBadge" class="hidden flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[var(--apple-surface-secondary)] border border-[var(--apple-border)] text-[var(--apple-secondary)]">
+          <svg class="w-3.5 h-3.5 text-current" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="7" width="16" height="10" rx="2" ry="2"></rect>
+            <line x1="22" y1="11" x2="22" y2="13"></line>
+            <line x1="6" y1="11" x2="6" y2="13"></line>
+          </svg>
+          <span id="batteryText">--%</span>
+        </div>
+
         <!-- Connection State Indicator -->
         <div id="connectionBadge" class="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[var(--apple-surface-secondary)] border border-[var(--apple-border)] text-[var(--apple-secondary)]">
           <span class="w-2 h-2 rounded-full bg-slate-400"></span>
@@ -364,12 +374,20 @@
       </div>
 
       <div class="flex items-center gap-2">
-        <!-- Connect Action -->
+        <!-- Connect USB Action -->
         <button id="btnConnect" class="apple-btn apple-btn-primary text-xs !py-1.5 !px-3">
           <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
-          <span id="btnConnectLabel">Kết nối</span>
+          <span id="btnConnectLabel">USB</span>
+        </button>
+
+        <!-- Connect BLE Action -->
+        <button id="btnConnectBle" class="apple-btn apple-btn-secondary text-xs !py-1.5 !px-3">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6.5 6.5 17.5 17.5 12 23 12 1 17.5 6.5 6.5 17.5"></polyline>
+          </svg>
+          <span id="btnConnectBleLabel">Bluetooth</span>
         </button>
 
         <!-- Console Inspector Quick Toggle -->
@@ -1284,11 +1302,19 @@
 
     const state = {
       connected: false,
+      connectionType: null, // 'serial' | 'ble' | null
       port: null,
       reader: null,
       writer: null,
       readableStreamClosed: null,
       writableStreamClosed: null,
+      bleDevice: null,
+      bleServer: null,
+      bleRxChar: null,
+      bleTxChar: null,
+      bleBatteryChar: null,
+      batteryLevel: null,
+      bleRxBuffer: '',
       activeSlotForPassword: null,
       pendingAction: null,
       webHostPaired: false,
@@ -1663,6 +1689,13 @@
         return;
       }
 
+      if (packet === 'ERR DISALLOWED_ON_BLE' || packet === 'ERR BLE_RESTRICTED' || packet === 'ERR BLOCKED_ON_BLE') {
+        log('❌ Thao tác này bị chặn qua kết nối Bluetooth vì lý do an toàn phần cứng. Vui lòng cắm cáp USB.', 'error');
+        showTouchModal('✕', 'Bị chặn trên Bluetooth', 'Tác vụ này yêu cầu kết nối USB có dây để đảm bảo an toàn phần cứng.', false);
+        setTimeout(hideTouchModal, 2500);
+        return;
+      }
+
       if (packet.startsWith('ERR ')) {
         log(`Lỗi từ thiết bị: ${packet}`, 'error');
       }
@@ -1703,14 +1736,38 @@
     }
 
     async function sendSerialCommand(cmd, silent = false) {
-      if (!state.connected || !state.port) {
-        log(`Chưa kết nối Web Serial. Vui lòng bấm "Kết nối" trước.`, 'warn');
+      if (!state.connected) {
+        log('Chưa kết nối thiết bị tinyTouch. Vui lòng bấm "USB" hoặc "Bluetooth" trước.', 'warn');
         return;
       }
       const cleanCmd = cmd.trim();
       if (!cleanCmd) return;
       if (!silent) {
         log(`TX -> ${cleanCmd}`, 'tx');
+      }
+
+      if (state.connectionType === 'ble') {
+        if (!state.bleRxChar) {
+          log('Lỗi BLE: Không tìm thấy RX characteristic.', 'error');
+          return;
+        }
+        try {
+          const encoder = new TextEncoder();
+          const bytes = encoder.encode(cleanCmd + '\n');
+          await state.bleRxChar.writeValueWithoutResponse(bytes);
+        } catch (err) {
+          log(`Lỗi truyền BLE: ${err.message}`, 'error');
+          if (state.connected) {
+            await disconnectBle();
+          }
+        }
+        return;
+      }
+
+      // Serial CDC
+      if (!state.port) {
+        log('Chưa kết nối Web Serial. Vui lòng bấm "USB" trước.', 'warn');
+        return;
       }
 
       try {
@@ -2069,9 +2126,165 @@
       }
     }
 
-    async function connectSerial() {
+    const NUS_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+    const NUS_RX_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+    const NUS_TX_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+    const BATTERY_SERVICE_UUID = 'battery_service';
+    const BATTERY_LEVEL_UUID = 'battery_level';
+
+    function updateBatteryUI(level) {
+      const badge = document.getElementById('batteryBadge');
+      const text = document.getElementById('batteryText');
+      if (!badge || !text) return;
+
+      if (level === null || level === undefined) {
+        badge.classList.add('hidden');
+        return;
+      }
+
+      state.batteryLevel = level;
+      text.textContent = `${level}%`;
+      badge.classList.remove('hidden');
+
+      if (level <= 20) {
+        badge.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400';
+      } else if (level <= 50) {
+        badge.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400';
+      } else {
+        badge.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400';
+      }
+    }
+
+    function handleBleIncomingData(event) {
+      const value = event.target.value;
+      const decoder = new TextDecoder();
+      const text = decoder.decode(value);
+      state.bleRxBuffer = (state.bleRxBuffer || '') + text;
+      const lines = state.bleRxBuffer.split('\n');
+      state.bleRxBuffer = lines.pop();
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed) {
+          if (!state.otaInProgress || trimmed.startsWith('OK OTA STAGED') || trimmed.startsWith('ERR')) {
+            log(`RX <- ${trimmed}`, 'rx');
+          }
+          handleIncomingSerialPacket(trimmed);
+        }
+      }
+    }
+
+    function onBleDisconnected() {
+      log('Mất kết nối Bluetooth với tinyTouch.', 'warn');
+      cleanupBleState();
+      setConnectedUI(false);
+    }
+
+    function cleanupBleState() {
+      state.connected = false;
+      state.connectionType = null;
+      if (state.bleDevice) {
+        try {
+          state.bleDevice.removeEventListener('gattserverdisconnected', onBleDisconnected);
+        } catch (_) {}
+      }
+      state.bleDevice = null;
+      state.bleServer = null;
+      state.bleRxChar = null;
+      state.bleTxChar = null;
+      state.bleBatteryChar = null;
+      state.batteryLevel = null;
+      state.bleRxBuffer = '';
+      state.device.mode = null;
+      hideTouchModal();
+      state.pendingAction = null;
+      state.pendingMode = null;
+    }
+
+    async function connectBle() {
       if (state.connected) {
+        if (state.connectionType === 'ble') {
+          await disconnectBle();
+        }
+        return;
+      }
+
+      if (!navigator.bluetooth) {
+        log('Trình duyệt hiện tại không hỗ trợ Web Bluetooth API. Vui lòng mở trang trên Google Chrome hoặc Edge.', 'error');
+        alert('Trình duyệt không hỗ trợ Web Bluetooth API.\nVui lòng sử dụng Google Chrome hoặc Microsoft Edge.');
+        return;
+      }
+
+      try {
+        log('Đang tìm kiếm thiết bị tinyTouch qua Bluetooth...', 'info');
+        const device = await navigator.bluetooth.requestDevice({
+          filters: [{ namePrefix: 'tinyTouch' }],
+          optionalServices: [NUS_SERVICE_UUID, BATTERY_SERVICE_UUID]
+        });
+
+        device.addEventListener('gattserverdisconnected', onBleDisconnected);
+        state.bleDevice = device;
+
+        log(`Đang kết nối GATT tới ${device.name || 'tinyTouch'}...`, 'info');
+        const server = await device.gatt.connect();
+        state.bleServer = server;
+
+        // NUS Service & Characteristics
+        const nusService = await server.getPrimaryService(NUS_SERVICE_UUID);
+        state.bleRxChar = await nusService.getCharacteristic(NUS_RX_UUID);
+        state.bleTxChar = await nusService.getCharacteristic(NUS_TX_UUID);
+
+        await state.bleTxChar.startNotifications();
+        state.bleTxChar.addEventListener('characteristicvaluechanged', handleBleIncomingData);
+
+        // Battery Service & Characteristic
+        try {
+          const battService = await server.getPrimaryService(BATTERY_SERVICE_UUID);
+          state.bleBatteryChar = await battService.getCharacteristic(BATTERY_LEVEL_UUID);
+          const battVal = await state.bleBatteryChar.readValue();
+          const level = battVal.getUint8(0);
+          updateBatteryUI(level);
+          await state.bleBatteryChar.startNotifications();
+          state.bleBatteryChar.addEventListener('characteristicvaluechanged', (e) => {
+            const lvl = e.target.value.getUint8(0);
+            updateBatteryUI(lvl);
+          });
+        } catch (battErr) {
+          log(`Không đọc được dịch vụ Pin: ${battErr.message}`, 'info');
+        }
+
+        state.connected = true;
+        state.connectionType = 'ble';
+        setConnectedUI(true);
+        log('Kết nối thành công Web Bluetooth (BLE NUS)!', 'tx');
+        await sendSerialCommand('STATUS');
+      } catch (err) {
+        if (err.name === 'NotFoundError') {
+          log('Người dùng đã hủy chọn thiết bị Bluetooth.', 'info');
+        } else {
+          log(`Lỗi kết nối Bluetooth: ${err.message}`, 'error');
+        }
+        cleanupBleState();
+        setConnectedUI(false);
+      }
+    }
+
+    async function disconnectBle() {
+      if (state.bleDevice && state.bleDevice.gatt && state.bleDevice.gatt.connected) {
+        try {
+          state.bleDevice.gatt.disconnect();
+        } catch (_) {}
+      }
+      cleanupBleState();
+      setConnectedUI(false);
+      log('Đã ngắt kết nối Bluetooth.', 'warn');
+    }
+
+    async function connectSerial() {
+      if (state.connected && state.connectionType === 'serial') {
         await disconnectSerial();
+        return;
+      }
+      if (state.connected && state.connectionType === 'ble') {
         return;
       }
 
@@ -2087,6 +2300,7 @@
         state.port = await navigator.serial.requestPort();
         await state.port.open({ baudRate: 115200 });
         state.connected = true;
+        state.connectionType = 'serial';
         setConnectedUI(true);
         log('Kết nối thành công Web Serial CDC 115200 baud!', 'tx');
         startReadLoop();
@@ -2099,6 +2313,7 @@
     async function handleDeviceDisconnected(isExplicit = false) {
       if (!state.connected && !state.port) return;
       state.connected = false;
+      state.connectionType = null;
       state.device.mode = null;
       hideTouchModal();
       state.pendingAction = null;
@@ -2156,21 +2371,58 @@
     function setConnectedUI(isConnected) {
       const badge = document.getElementById('connectionBadge');
       const text = document.getElementById('connectionText');
-      const btn = document.getElementById('btnConnect');
-      const label = document.getElementById('btnConnectLabel');
+      const btnUsb = document.getElementById('btnConnect');
+      const labelUsb = document.getElementById('btnConnectLabel');
+      const btnBle = document.getElementById('btnConnectBle');
+      const labelBle = document.getElementById('btnConnectBleLabel');
 
       if (isConnected) {
         badge.className = 'flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400';
         badge.firstElementChild.className = 'w-2 h-2 rounded-full bg-emerald-500';
-        text.textContent = 'CDC 115200';
-        btn.className = 'apple-btn apple-btn-destructive text-xs !py-1.5 !px-3';
-        label.textContent = 'Ngắt kết nối';
+
+        if (state.connectionType === 'ble') {
+          text.textContent = 'BLE NUS';
+          if (btnBle) {
+            btnBle.className = 'apple-btn apple-btn-destructive text-xs !py-1.5 !px-3';
+            btnBle.disabled = false;
+          }
+          if (labelBle) labelBle.textContent = 'Ngắt BLE';
+          if (btnUsb) {
+            btnUsb.className = 'apple-btn apple-btn-secondary text-xs !py-1.5 !px-3 opacity-50 cursor-not-allowed';
+            btnUsb.disabled = true;
+          }
+          if (labelUsb) labelUsb.textContent = 'USB';
+        } else {
+          text.textContent = 'CDC 115200';
+          if (btnUsb) {
+            btnUsb.className = 'apple-btn apple-btn-destructive text-xs !py-1.5 !px-3';
+            btnUsb.disabled = false;
+          }
+          if (labelUsb) labelUsb.textContent = 'Ngắt USB';
+          if (btnBle) {
+            btnBle.className = 'apple-btn apple-btn-secondary text-xs !py-1.5 !px-3 opacity-50 cursor-not-allowed';
+            btnBle.disabled = true;
+          }
+          if (labelBle) labelBle.textContent = 'Bluetooth';
+        }
       } else {
         badge.className = 'flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[var(--apple-surface-secondary)] border border-[var(--apple-border)] text-[var(--apple-secondary)]';
         badge.firstElementChild.className = 'w-2 h-2 rounded-full bg-slate-400';
         text.textContent = 'Chưa kết nối';
-        btn.className = 'apple-btn apple-btn-primary text-xs !py-1.5 !px-3';
-        label.textContent = 'Kết nối';
+
+        if (btnUsb) {
+          btnUsb.className = 'apple-btn apple-btn-primary text-xs !py-1.5 !px-3';
+          btnUsb.disabled = false;
+        }
+        if (labelUsb) labelUsb.textContent = 'USB';
+
+        if (btnBle) {
+          btnBle.className = 'apple-btn apple-btn-secondary text-xs !py-1.5 !px-3';
+          btnBle.disabled = false;
+        }
+        if (labelBle) labelBle.textContent = 'Bluetooth';
+
+        updateBatteryUI(null);
       }
       updateTelemetry();
     }
@@ -2444,7 +2696,12 @@
     if (btnCreatePivKeyEl) {
       btnCreatePivKeyEl.addEventListener('click', () => {
         if (!state.connected) {
-          log('Chưa kết nối Web Serial. Vui lòng bấm "Kết nối" trước.', 'warn');
+          log('Chưa kết nối thiết bị. Vui lòng kết nối trước.', 'warn');
+          return;
+        }
+        if (state.connectionType === 'ble') {
+          alert('Khởi tạo khóa PIV SmartCard bị chặn trên kết nối Bluetooth vì lý do an toàn.\nVui lòng cắm cáp USB.');
+          log('❌ Không thể tạo khóa PIV qua Bluetooth (yêu cầu kết nối USB có dây).', 'error');
           return;
         }
         if (confirm('Khởi tạo cặp khóa RSA 2048-bit và chứng chỉ tự ký X.509 cho Slot 9A trên phần cứng tinyTouch? Quá trình có thể mất vài giây.')) {
@@ -2769,6 +3026,11 @@
 
     // Factory Reset
     document.getElementById('btnResetFactory').addEventListener('click', () => {
+      if (state.connectionType === 'ble') {
+        alert('Khôi phục cài đặt gốc bị chặn trên kết nối Bluetooth vì lý do an toàn.\nVui lòng cắm cáp USB.');
+        log('❌ Không thể khôi phục cài đặt gốc qua Bluetooth (yêu cầu kết nối USB có dây).', 'error');
+        return;
+      }
       if (confirm('CẢNH BÁO: Thao tác này sẽ xóa toàn bộ vân tay và khôi phục cài đặt gốc của tinyTouch. Tiếp tục?')) {
         runWithAuth({ cmd: 'RESET FACTORY', desc: 'Khôi phục cài đặt gốc' });
       }
@@ -2793,7 +3055,10 @@
       fwProgressBar.style.width = '0%';
       fwProgressBar.style.backgroundColor = '';
       fwPercentText.textContent = '0%';
-      if (state.fwBuffer) {
+      if (state.connectionType === 'ble') {
+        fwProgressText.textContent = 'OTA bị khóa trên Bluetooth (yêu cầu kết nối USB có dây).';
+        btnStartFlash.disabled = true;
+      } else if (state.fwBuffer) {
         fwProgressText.textContent = `Sẵn sàng nạp (${(state.fwBuffer.byteLength / 1024).toFixed(1)} KB)`;
         btnStartFlash.disabled = false;
       } else {
@@ -2919,6 +3184,11 @@
 
     async function startSerialOta() {
       if (state.otaInProgress) return;
+      if (state.connectionType === 'ble') {
+        alert('Nâng cấp Firmware OTA bị chặn trên kết nối Bluetooth vì lý do an toàn.\nVui lòng cắm cáp USB và kết nối qua Web Serial.');
+        log('❌ Không hỗ trợ nạp OTA qua Bluetooth (yêu cầu kết nối USB CDC).', 'error');
+        return;
+      }
       if (!state.connected || !state.port) {
         alert('Vui lòng kết nối tinyTouch qua Web Serial trước khi nạp firmware!');
         return;
@@ -3375,6 +3645,13 @@
     updateTelemetry();
     updateWebHostUI();
     document.getElementById('btnConnect').addEventListener('click', connectSerial);
+    document.getElementById('btnConnectBle')?.addEventListener('click', () => {
+      if (state.connected && state.connectionType === 'ble') {
+        disconnectBle();
+      } else {
+        connectBle();
+      }
+    });
 
     // Lắng nghe sự kiện ngắt kết nối phần cứng từ Web Serial API (rút cáp USB)
     if ('serial' in navigator) {
