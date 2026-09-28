@@ -68,14 +68,22 @@ cd firmware
 idf.py set-target esp32s3
 ```
 
-### 3. Build mã nguồn
+### 3. Tùy biến mã PIN SmartCard PIV (Tùy chọn trước khi Build)
+
+Mã PIN PIV mặc định là **`754321`** (bản gốc: `111111`). Nếu muốn đổi mã PIN này trước khi biên dịch, cần sửa đồng bộ tại:
+- `main/piv.c` (Dòng 566 - 568: mảng `expected_pin[8]`).
+- `main/touch_pin_hid.c` (Dòng 377: mảng `piv_pin[]`).
+- Đồng bộ giao diện Web Controller tại `../controller/index.html` (Dòng 2222, 2253, 2265).
+Chi tiết xem tại [docs/BUILD_AND_FLASH.md](../docs/BUILD_AND_FLASH.md#2-tùy-biến-mã-pin-smartcard-piv-tùy-chọn-trước-khi-build).
+
+### 4. Build mã nguồn
 
 ```bash
 idf.py build
 ```
 File nhị phân sau khi build thành công sẽ nằm tại: `firmware/build/tiny_touch_unified.bin`.
 
-### 4. Nạp firmware (Flash)
+### 5. Nạp firmware (Flash)
 
 Hệ thống hỗ trợ 2 phương pháp nạp:
 1. **Serial OTA qua Web Controller / Python script (Khuyên dùng):** Nạp trực tiếp qua cổng CDC không cần tháo vỏ thiết bị hay giữ nút vật lý. Xem hướng dẫn chi tiết tại [docs/BUILD_AND_FLASH.md](../docs/BUILD_AND_FLASH.md).

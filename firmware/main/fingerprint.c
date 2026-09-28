@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "device_config.h"
+#include "touch_pin_hid.h"
 #include "driver/gpio.h"
 #include "driver/uart.h"
 #include "esp_log.h"
@@ -220,12 +221,28 @@ static void set_idle_breathing(void) {
 static void show_result(bool ok) {
   set_aura(ok ? FP_LED_GREEN : FP_LED_RED);
   vTaskDelay(pdMS_TO_TICKS(350));
-  set_idle_breathing();
+  if (!transport_is_usb_active()) {
+    set_aura(0);
+  } else {
+    set_idle_breathing();
+  }
 }
 
 void fingerprint_led_idle(void) {
   if (!fp_take(1000)) return;
-  set_idle_breathing();
+  if (!transport_is_usb_active()) {
+    set_aura(0);
+  } else {
+    set_idle_breathing();
+  }
+  fp_give();
+}
+
+void fingerprint_sleep(void) {
+  if (!fp_take(1000)) return;
+  uint8_t confirm = 0xff;
+  // Instruction 0x33: Synochip/Grow Sleep command
+  fp_command(0x33, NULL, 0, &confirm, NULL, NULL, 500);
   fp_give();
 }
 

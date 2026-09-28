@@ -8,10 +8,12 @@
 
 #include <string.h>
 
+#include "ble_service.h"
 #include "config_console.h"
 #include "device_config.h"
 #include "fingerprint.h"
 #include "piv.h"
+#include "power_mgmt.h"
 #include "touch_pin_hid.h"
 #include "usb_ccid.h"
 
@@ -68,7 +70,9 @@ void app_main(void) {
   piv_init();
   usb_ccid_start(piv_handle_apdu);
   config_console_start();
+  ble_service_init();
   touch_pin_hid_start();
+  power_mgmt_init();
   // All persistent state and runtime services initialized successfully. Keep
   // this OTA slot across later power cycles instead of rolling back once.
   (void)esp_ota_mark_app_valid_cancel_rollback();

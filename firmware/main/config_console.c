@@ -14,9 +14,11 @@
 #include "tusb.h"
 
 #include "device_config.h"
+#include "ble_service.h"
 #include "fingerprint.h"
 #include "firmware_update.h"
 #include "piv.h"
+#include "power_mgmt.h"
 #include "touch_pin_hid.h"
 #include "usb_ccid.h"
 
@@ -31,13 +33,26 @@
 #define OTA_WINDOW_US (30LL * 1000000LL)
 #define CDC_WRITE_TIMEOUT_US (2LL * 1000000LL)
 
+static cmd_source_t current_cmd_source = CMD_SRC_NONE;
+static SemaphoreHandle_t cmd_mutex;
+static SemaphoreHandle_t write_lock;
+
+static char cdc_command[5632];
+static size_t cdc_command_length;
+static bool cdc_command_overflow;
+
+static SemaphoreHandle_t ble_rx_mutex;
+static char ble_rx_line[5632];
+static size_t ble_rx_len;
+static bool ble_rx_overflow;
+static char ble_pending_cmd[5632];
+static volatile bool ble_cmd_pending;
+static volatile bool ble_cmd_overflow_flag;
+
 static char command[5632];
-static size_t command_length;
-static bool command_overflow;
 static char ota_token[33];
 static int64_t authorized_until;
 static int64_t ota_last_activity;
-static SemaphoreHandle_t write_lock;
 static volatile bool piv_create_active;
 static volatile bool usb_reconnect_active;
 
@@ -67,12 +82,43 @@ static bool cdc_write_all(const char *data, size_t length, int64_t deadline) {
   return true;
 }
 
+static void ble_write_line(const char *line) {
+  if (!line) return;
+  size_t len = strlen(line);
+  if (len + 3 <= 512) {
+    char buf[512];
+    memcpy(buf, line, len);
+    buf[len] = '\r';
+    buf[len + 1] = '\n';
+    buf[len + 2] = '\0';
+    ble_service_send_console_line(buf);
+  } else {
+    ble_service_send_console_line(line);
+    ble_service_send_console_line("\r\n");
+  }
+}
+
 void config_console_send_line(const char *line) {
   if (!line) return;
   if (write_lock) xSemaphoreTake(write_lock, portMAX_DELAY);
-  int64_t deadline = esp_timer_get_time() + CDC_WRITE_TIMEOUT_US;
-  bool sent = cdc_write_all(line, strlen(line), deadline);
-  if (sent) cdc_write_all("\r\n", 2, deadline);
+
+  if (current_cmd_source == CMD_SRC_BLE_NUS) {
+    ble_write_line(line);
+  } else if (current_cmd_source == CMD_SRC_USB_CDC) {
+    int64_t deadline = esp_timer_get_time() + CDC_WRITE_TIMEOUT_US;
+    bool sent = cdc_write_all(line, strlen(line), deadline);
+    if (sent) cdc_write_all("\r\n", 2, deadline);
+  } else {
+    // Asynchronous broadcast: send to active transport (USB CDC if ready, else BLE if connected)
+    if (tud_cdc_connected()) {
+      int64_t deadline = esp_timer_get_time() + CDC_WRITE_TIMEOUT_US;
+      bool sent = cdc_write_all(line, strlen(line), deadline);
+      if (sent) cdc_write_all("\r\n", 2, deadline);
+    } else if (ble_service_is_connected()) {
+      ble_write_line(line);
+    }
+  }
+
   if (write_lock) xSemaphoreGive(write_lock);
 }
 
@@ -377,7 +423,20 @@ static void write_key(char *arguments) {
   reply("OK WRITE_KEY");
 }
 
+static bool is_disallowed_on_ble(const char *cmd) {
+  if (!cmd) return false;
+  if (strncmp(cmd, "OTA", 3) == 0 && (cmd[3] == '\0' || cmd[3] == ' ')) return true;
+  if (strncmp(cmd, "RESET FACTORY", 13) == 0 && (cmd[13] == '\0' || cmd[13] == ' ')) return true;
+  if (strncmp(cmd, "PIV CREATE", 10) == 0 && (cmd[10] == '\0' || cmd[10] == ' ')) return true;
+  return false;
+}
+
 static void handle_command(void) {
+  if (current_cmd_source == CMD_SRC_BLE_NUS && is_disallowed_on_ble(command)) {
+    reply("ERR DISALLOWED_ON_BLE");
+    return;
+  }
+
   if (strcmp(command, "PING") == 0) reply("PONG 6");
   else if (strcmp(command, "STATUS") == 0) status();
   else if (strcmp(command, "LOGS") == 0) touch_pin_hid_send_logs();
@@ -404,6 +463,41 @@ static void handle_command(void) {
   else reply("ERR COMMAND");
 }
 
+void config_console_feed_ble_input(const uint8_t *data, size_t len) {
+  if (!data || len == 0 || !ble_rx_mutex) return;
+  power_mgmt_note_activity();
+
+  if (xSemaphoreTake(ble_rx_mutex, pdMS_TO_TICKS(20)) != pdTRUE) {
+    return;
+  }
+
+  for (size_t i = 0; i < len; i++) {
+    char c = (char)data[i];
+    if (c == '\r') continue;
+    if (c == '\n') {
+      if (ble_rx_overflow) {
+        ble_cmd_overflow_flag = true;
+      } else if (ble_rx_len > 0) {
+        ble_rx_line[ble_rx_len] = '\0';
+        if (!ble_cmd_pending) {
+          memcpy(ble_pending_cmd, ble_rx_line, ble_rx_len + 1);
+          ble_cmd_pending = true;
+        } else {
+          ble_cmd_overflow_flag = true;
+        }
+      }
+      ble_rx_len = 0;
+      ble_rx_overflow = false;
+    } else if (ble_rx_len + 1 < sizeof(ble_rx_line)) {
+      ble_rx_line[ble_rx_len++] = c;
+    } else {
+      ble_rx_overflow = true;
+    }
+  }
+
+  xSemaphoreGive(ble_rx_mutex);
+}
+
 static void console_task(void *arg) {
   (void)arg;
   char buffer[1024];
@@ -414,19 +508,75 @@ static void console_task(void *arg) {
     bool activity = false;
     while (tud_cdc_available()) {
       uint32_t count = tud_cdc_read(buffer, sizeof(buffer)); activity = count != 0;
+      if (activity) {
+        power_mgmt_note_activity();
+      }
       for (uint32_t i = 0; i < count; i++) {
         if (buffer[i] == '\r') continue;
         if (buffer[i] == '\n') {
-          command[command_length] = '\0';
-          if (!command_overflow && command_length) {
-            if (strncmp(command, "PW ", 3) == 0 || strncmp(command, "PW2 ", 4) == 0) touch_pin_hid_submit_response(command);
-            else handle_command();
-          } else if (command_overflow) reply("ERR LINE");
-          command_length = 0; command_overflow = false;
-        } else if (command_length + 1 < sizeof(command)) command[command_length++] = buffer[i];
-        else command_overflow = true;
+          cdc_command[cdc_command_length] = '\0';
+          if (!cdc_command_overflow && cdc_command_length) {
+            if (cmd_mutex) xSemaphoreTake(cmd_mutex, portMAX_DELAY);
+            current_cmd_source = CMD_SRC_USB_CDC;
+            memcpy(command, cdc_command, cdc_command_length + 1);
+            if (strncmp(command, "PW ", 3) == 0 || strncmp(command, "PW2 ", 4) == 0) {
+              touch_pin_hid_submit_response(command);
+            } else {
+              handle_command();
+            }
+            current_cmd_source = CMD_SRC_NONE;
+            if (cmd_mutex) xSemaphoreGive(cmd_mutex);
+          } else if (cdc_command_overflow) {
+            if (cmd_mutex) xSemaphoreTake(cmd_mutex, portMAX_DELAY);
+            current_cmd_source = CMD_SRC_USB_CDC;
+            reply("ERR LINE");
+            current_cmd_source = CMD_SRC_NONE;
+            if (cmd_mutex) xSemaphoreGive(cmd_mutex);
+          }
+          cdc_command_length = 0; cdc_command_overflow = false;
+        } else if (cdc_command_length + 1 < sizeof(cdc_command)) {
+          cdc_command[cdc_command_length++] = buffer[i];
+        } else {
+          cdc_command_overflow = true;
+        }
       }
     }
+
+    bool has_ble_cmd = false;
+    bool has_ble_overflow = false;
+    if (ble_rx_mutex && xSemaphoreTake(ble_rx_mutex, 0) == pdTRUE) {
+      if (ble_cmd_overflow_flag) {
+        has_ble_overflow = true;
+        ble_cmd_overflow_flag = false;
+      } else if (ble_cmd_pending) {
+        has_ble_cmd = true;
+        memcpy(command, ble_pending_cmd, sizeof(command));
+        command[sizeof(command) - 1] = '\0';
+        ble_cmd_pending = false;
+      }
+      xSemaphoreGive(ble_rx_mutex);
+    }
+
+    if (has_ble_overflow) {
+      activity = true;
+      if (cmd_mutex) xSemaphoreTake(cmd_mutex, portMAX_DELAY);
+      current_cmd_source = CMD_SRC_BLE_NUS;
+      reply("ERR LINE");
+      current_cmd_source = CMD_SRC_NONE;
+      if (cmd_mutex) xSemaphoreGive(cmd_mutex);
+    } else if (has_ble_cmd) {
+      activity = true;
+      if (cmd_mutex) xSemaphoreTake(cmd_mutex, portMAX_DELAY);
+      current_cmd_source = CMD_SRC_BLE_NUS;
+      if (strncmp(command, "PW ", 3) == 0 || strncmp(command, "PW2 ", 4) == 0) {
+        touch_pin_hid_submit_response(command);
+      } else {
+        handle_command();
+      }
+      current_cmd_source = CMD_SRC_NONE;
+      if (cmd_mutex) xSemaphoreGive(cmd_mutex);
+    }
+
     // The scheduler tick is 10 ms. A 2 ms conversion becomes zero and leaves
     // this higher-priority loop ready forever, starving app_main before it can
     // create the background fingerprint task.
@@ -437,6 +587,10 @@ static void console_task(void *arg) {
 void config_console_start(void) {
   write_lock = xSemaphoreCreateMutex();
   configASSERT(write_lock);
-  BaseType_t created = xTaskCreate(console_task, "console", 6144, NULL, 3, NULL);
+  cmd_mutex = xSemaphoreCreateMutex();
+  configASSERT(cmd_mutex);
+  ble_rx_mutex = xSemaphoreCreateMutex();
+  configASSERT(ble_rx_mutex);
+  BaseType_t created = xTaskCreate(console_task, "console", CONFIG_CONSOLE_STACK_SIZE, NULL, 3, NULL);
   configASSERT(created == pdPASS);
 }

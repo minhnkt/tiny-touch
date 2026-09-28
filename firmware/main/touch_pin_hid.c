@@ -3,11 +3,13 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "ble_service.h"
 #include "class/hid/hid_device.h"
 #include "config_console.h"
 #include "device_config.h"
 #include "esp_log.h"
 #include "esp_random.h"
+#include "esp_sleep.h"
 #include "fingerprint.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
@@ -15,6 +17,8 @@
 #include "mbedtls/aes.h"
 #include "mbedtls/md.h"
 #include "piv.h"
+#include "power_mgmt.h"
+#include "tusb.h"
 #include "usb_descriptors.h"
 
 static const char *TAG = "touch_hid";
@@ -81,15 +85,29 @@ static bool wait_hid_ready(void) {
   return true;
 }
 
-static bool send_key(uint8_t modifier, uint8_t key) {
-  uint8_t report[6] = {key, 0, 0, 0, 0, 0};
-  if (!wait_hid_ready()) return false;
-  if (!tud_hid_keyboard_report(0, modifier, report)) return false;
-  vTaskDelay(pdMS_TO_TICKS(device_config_typing_delay_ms()));
-  if (!wait_hid_ready()) return false;
-  if (!tud_hid_keyboard_report(0, 0, NULL)) return false;
-  vTaskDelay(pdMS_TO_TICKS(device_config_typing_delay_ms()));
-  return true;
+bool transport_is_usb_active(void) {
+  return tud_mounted() && !tud_suspended();
+}
+
+bool transport_send_key(uint8_t modifier, uint8_t key) {
+  uint8_t keycodes[6] = {key, 0, 0, 0, 0, 0};
+  if (transport_is_usb_active() && tud_hid_ready()) {
+    if (!tud_hid_keyboard_report(0, modifier, keycodes)) return false;
+    vTaskDelay(pdMS_TO_TICKS(device_config_typing_delay_ms()));
+    if (!wait_hid_ready()) return false;
+    if (!tud_hid_keyboard_report(0, 0, NULL)) return false;
+    vTaskDelay(pdMS_TO_TICKS(device_config_typing_delay_ms()));
+    return true;
+  }
+  if (ble_service_is_connected()) {
+    if (!ble_service_send_keyboard_report(modifier, keycodes)) return false;
+    vTaskDelay(pdMS_TO_TICKS(device_config_typing_delay_ms()));
+    uint8_t empty[6] = {0};
+    if (!ble_service_send_keyboard_report(0, empty)) return false;
+    vTaskDelay(pdMS_TO_TICKS(device_config_typing_delay_ms()));
+    return true;
+  }
+  return false;
 }
 
 static bool type_ascii(const uint8_t *data, size_t length) {
@@ -105,9 +123,9 @@ static bool type_ascii(const uint8_t *data, size_t length) {
       shift = !shift;
     }
     uint8_t modifier = shift ? KEYBOARD_MODIFIER_LEFTSHIFT : 0;
-    if (!send_key(modifier, ascii_to_keycode[c][1])) return false;
+    if (!transport_send_key(modifier, ascii_to_keycode[c][1])) return false;
   }
-  return device_config_submit_enter() ? send_key(0, HID_KEY_ENTER) : true;
+  return device_config_submit_enter() ? transport_send_key(0, HID_KEY_ENTER) : true;
 }
 
 static void bytes_to_hex(const uint8_t *data, size_t length, char *output) {
@@ -297,6 +315,15 @@ static bool request_and_type_password(fingerprint_match_t match) {
   bytes_to_hex(nonce_bytes, sizeof(nonce_bytes), nonce);
   event_counter++;
   xQueueReset(password_responses);
+  if (!transport_is_usb_active()) {
+    for (int wait = 0; !ble_service_is_connected() && wait < 30; wait++) {
+      vTaskDelay(pdMS_TO_TICKS(100));
+    }
+    // Allow brief window for encryption handshake
+    if (ble_service_is_connected()) {
+      vTaskDelay(pdMS_TO_TICKS(100));
+    }
+  }
   if (host_count == 1) {
     snprintf(material, sizeof(material), "EV|%s|%lu|%u|%u", nonce,
              (unsigned long)event_counter, match.slot, match.score);
@@ -372,6 +399,11 @@ static void handle_fingerprint_match(fingerprint_match_t match) {
     touch_pin_hid_log_event(success ? "hid_typed" : "hid_failed", match.slot);
     if (!success) ESP_LOGW(TAG, "HID helper request failed");
   } else {
+    if (!transport_is_usb_active()) {
+      ESP_LOGW(TAG, "PIV mode strictly wired USB-only; USB inactive");
+      touch_pin_hid_log_event("piv_no_usb", match.slot);
+      return;
+    }
     // The PIV applet accepts this PIN. Emit it only after a verified background
     // fingerprint match, so the macOS smart-card PIN field can complete login.
     static const uint8_t piv_pin[] = {'7', '5', '4', '3', '2', '1'};
@@ -393,7 +425,7 @@ static void touch_hid_task(void *arg) {
   auth_runtime_t runtime = {
     .state = AUTH_STATE_IDLE,
     .state_started = xTaskGetTickCount(),
-    .presence_armed = false,
+    .presence_armed = (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_EXT0),
   };
   TickType_t next_recovery = 0;
   touch_pin_hid_log_event("task_started", 0);
@@ -474,6 +506,7 @@ static void touch_hid_task(void *arg) {
     }
 
     touch_pin_hid_log_event("finger_matched", match.slot);
+    power_mgmt_note_activity();
     // Keep result feedback bounded. Host communication must not leave the
     // sensor green when a helper, USB endpoint, or PIN field is unavailable.
     vTaskDelay(pdMS_TO_TICKS(350));

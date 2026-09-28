@@ -17,7 +17,33 @@ Hệ thống hỗ trợ **2 phương pháp nạp firmware**:
 source ~/esp/esp-idf-v5.3/export.sh
 ```
 
-### 2. Biên dịch Firmware
+### 2. Tùy biến mã PIN SmartCard PIV (Tùy chọn trước khi Build)
+
+Mã PIN PIV mặc định được thiết lập trong firmware là **`754321`** (ở dự án gốc là `111111`). Nếu muốn đổi mã PIN này trước khi build lại firmware, bạn cần chỉnh sửa ở **2 vị trí trong mã nguồn C** (và 1 vị trí trên giao diện Web Controller nếu muốn hiển thị đồng bộ):
+
+1. **Xác thực PIV APDU SmartCard (macOS kiểm tra qua USB CCID):**
+   - **File:** `firmware/main/piv.c` (Dòng 566 - 568)
+   ```c
+   static const uint8_t expected_pin[8] = {
+     '7', '5', '4', '3', '2', '1', 0xff, 0xff,
+   };
+   ```
+   *(Lưu ý: Mảng dài 8 byte, nếu PIN ngắn hơn 8 ký tự thì bù bằng `0xff` vào các byte cuối)*.
+
+2. **Tự động gửi phím PIN PIV qua bàn phím USB ảo khi chạm vân tay:**
+   - **File:** `firmware/main/touch_pin_hid.c` (Dòng 377)
+   ```c
+   static const uint8_t piv_pin[] = {'7', '5', '4', '3', '2', '1'};
+   ```
+   *(Giá trị này **bắt buộc phải khớp hoàn toàn** với mã PIN đã đặt ở `piv.c`)*.
+
+3. **Cập nhật giao diện Web Controller (Đồng bộ nút xem & sao chép PIN):**
+   - **File:** `controller/index.html` (Dòng 2222, 2253, 2265)
+   - Thay đổi chuỗi `'754321'` thành mã PIN mới để UI hiển thị và sao chép đúng.
+
+---
+
+### 3. Biên dịch Firmware
 
 ```bash
 # Biên dịch mã nguồn firmware

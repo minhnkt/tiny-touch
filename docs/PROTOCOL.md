@@ -215,7 +215,14 @@ Khi ở chế độ PIV (`SET_MODE PIV`), ngoài giao diện USB CDC để cấu
 
 ### 5.3. Quy trình ghép đôi (Pairing) PIV SmartCard trên macOS
 
-Mã PIN mặc định của thẻ PIV trong firmware: **`754321`** (6 chữ số).
+Mã PIN mặc định của thẻ PIV trong firmware: **`754321`** (6 chữ số; ở bản gốc là `111111`).
+
+> **Tùy biến mã PIN trước khi build:**
+> Để thay đổi mã PIN này trước khi biên dịch lại firmware, cần sửa đồng bộ tại:
+> - `firmware/main/piv.c` (Dòng 566 - 568: `expected_pin[8]`).
+> - `firmware/main/touch_pin_hid.c` (Dòng 377: `piv_pin[]`).
+> - `controller/index.html` (Dòng 2222, 2253, 2265: hiển thị và nút sao chép PIN trên Web UI).
+> Chi tiết xem tại [BUILD_AND_FLASH.md](./BUILD_AND_FLASH.md#2-tùy-biến-mã-pin-smartcard-piv-tùy-chọn-trước-khi-build).
 
 #### Các bước khởi tạo và liên kết tài khoản:
 
@@ -251,5 +258,103 @@ Mã PIN mặc định của thẻ PIV trong firmware: **`754321`** (6 chữ số
 6. **Cơ chế mở khóa màn hình:**
    - Tại màn hình khóa macOS, khi cắm tinyTouch ở chế độ PIV, hệ điều hành tự động chọn phương thức SmartCard.
    - Khi chạm ngón tay đã đăng ký vào cảm biến, thiết bị tự động gửi mã PIN `754321` qua bàn phím USB và cấp quyền ký RSA để mở khóa máy tính tức thì mà không cần gõ phím.
+
+---
+
+## 6. Giao thức không dây Bluetooth Low Energy (BLE Wireless)
+
+Bên cạnh cổng USB CDC/HID vật lý, tinyTouch tích hợp ngăn xếp Bluetooth Low Energy (Apache NimBLE) để hỗ trợ vận hành không dây song song (Dual-Mode Wireless) và quản lý nguồn pin tối ưu.
+
+### 6.1. Kiến trúc GATT Services (NimBLE Stack)
+
+Thiết bị công bố 4 GATT Primary Services tiêu chuẩn:
+
+| Service | UUID | Đặc tính (Characteristic) | UUID Char | Quyền hạn / Flags | Mô tả |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Human Interface Device (HOGP)** | `0x1812` | Protocol Mode | `0x2A4E` | Read, WriteWithoutResponse | Chế độ báo cáo (Report Mode: `0x01`) |
+| | | HID Information | `0x2A4A` | Read | Phiên bản `0x0111`, cờ kết nối `0x02` |
+| | | Report Map | `0x2A4B` | Read (Encrypted) | HID Keyboard Descriptor tiêu chuẩn (8 bytes) |
+| | | HID Control Point | `0x2A4C` | WriteWithoutResponse | Điều khiển Suspend / Resume |
+| | | Input Report | `0x2A4D` | Read, Notify (Bắt buộc mã hóa `READ_ENC \| NOTIFY_INDICATE_ENC`) | Báo cáo bàn phím 8 bytes (1 modifier, 1 reserved, 6 keycodes) kèm Descriptor Report Reference (`0x2908`) |
+| **Nordic UART Service (NUS)** | `6e400001-b5a3-f393-e0a9-e50e24dcca9e` | NUS RX | `6e400002-b5a3-f393-e0a9-e50e24dcca9e` | Write, WriteWithoutResponse | Tiếp nhận chuỗi lệnh Console từ Web Bluetooth |
+| | | NUS TX | `6e400003-b5a3-f393-e0a9-e50e24dcca9e` | Notify | Thiết bị gửi phản hồi / Telemetry lên máy chủ |
+| **Battery Service** | `0x180F` | Battery Level | `0x2A19` | Read, Notify | Tỷ lệ phần trăm pin còn lại (0 - 100%) |
+| **Device Information** | `0x180A` | Manufacturer Name | `0x2A29` | Read | `tinyTouch` |
+| | | Model Number | `0x2A24` | Read | `tinyTouch Key` |
+| | | PnP ID | `0x2A50` | Read | Vendor ID Source `0x02`, VID `0x303A`, PID `0x4001`, Rev `0x0100` |
+
+### 6.2. Thông số kết nối tối ưu cho Apple / Windows (Connection Parameters)
+
+Để cân bằng giữa thời gian đáp ứng khi gõ phím (< 50ms) và tiết kiệm điện năng trên pin LiPo 370 mAh, thiết bị tự động đàm phán thông số kết nối tuân thủ chặt chẽ *Apple Accessory Design Guidelines*:
+
+- **Connection Interval:** 30ms đến 50ms (`itvl_min = 24`, `itvl_max = 40`).
+- **Slave Latency:** `20` kết nối (cho phép chip ngủ bỏ qua chu kỳ rỗi khi không gõ phím).
+- **Supervision Timeout:** 4000ms (`supervision_timeout = 400`).
+- **Bảo mật & Ghép đôi:**
+  - Hỗ trợ BLE Security Manager (SM) bonding lưu vào Flash NVS qua `ble_store_config_init()`.
+  - Toàn bộ kênh truyền HID Input Report và Report Map bắt buộc mã hóa AES-128 CCM (`BLE_GAP_CHR_F_READ_ENC`, `BLE_GAP_CHR_F_NOTIFY_INDICATE_ENC`).
+
+### 6.3. Cơ chế Bảo mật Zero-Trust Control Plane
+
+Kênh truyền nối tiếp BLE NUS mở ra khả năng điều khiển không dây, tuy nhiên để ngăn chặn các cuộc tấn công không dây từ xa qua sóng Bluetooth:
+
+1. **Danh sách các lệnh cấm tuyệt đối trên BLE NUS:**
+   - `OTA BEGIN`, `OTA WRITE`, `OTA COMMIT` (Quy trình nạp firmware).
+   - `RESET FACTORY` (Khôi phục cài đặt gốc, xóa chìa khóa bảo mật).
+   - `PIV CREATE` (Sinh lại cặp khóa RSA và chứng chỉ bảo mật).
+2. **Phản hồi từ chối từ thiết bị:**
+   Khi nhận các lệnh trên qua kênh BLE NUS, bộ phân giải dòng lệnh lập tức chặn lại và phản hồi:
+   ```text
+   ERR DISALLOWED_ON_BLE
+   ```
+   *Các thao tác này bắt buộc phải thực hiện thông qua kết nối có dây USB CDC vật lý.*
+3. **Quyền quản trị `AUTH`:** Mọi tác vụ cấu hình thông qua BLE vẫn chịu ràng buộc của phiên ủy quyền `AUTH` với xác thực sinh trắc học vân tay trực tiếp trên cảm biến.
+
+### 6.4. Quản lý nguồn 3 tầng (3-Tier Power Management) cho Pin 370 mAh
+
+Thiết bị thiết kế tối ưu cho pin LiPo dung lượng 370 mAh với kiến trúc quản lý nguồn 3 tầng tự động:
+
+```
+[Hoạt động chạm / gõ phím]
+           │
+           ▼
+┌────────────────────────────────────────┐
+│ Tầng 1: Active Mode                    │
+│ - ESP32-S3 CPU & RF hoạt động đầy đủ   │
+│ - Cảm biến vân tay sẵn sàng quét       │
+└────────────────────────────────────────┘
+           │
+           │ (Chạy nguồn pin LiPo, không cắm USB)
+           ▼
+┌────────────────────────────────────────┐
+│ Tầng 2: Light Sleep (Tiết kiệm nguồn)  │
+│ - Tự động TẮT đèn LED Aura thở         │
+│ - Giảm tiêu thụ ~15-20mA tĩnh          │
+│ - BLE duy trì chu kỳ Slave Latency 20  │
+└────────────────────────────────────────┘
+           │
+           │ (Sau 15 phút không hoạt động trên pin)
+           ▼
+┌────────────────────────────────────────┐
+│ Tầng 3: Deep Sleep                     │
+│ - Cảm biến nhận lệnh ngủ 0x33          │
+│ - ESP32-S3 tắt toàn bộ CPU & Radio     │
+│ - Bật ngắt phần cứng EXT0 trên GPIO 2  │
+│ - Tiêu thụ tĩnh < 30 µA                │
+└────────────────────────────────────────┘
+```
+
+#### Chi tiết các tầng:
+1. **Tầng 1 (Active Mode):** Khi cắm USB hoặc đang trong phiên xác thực vân tay. Mọi thành phần hoạt động hết công suất.
+2. **Tầng 2 (Light Sleep):** Khi hoạt động bằng nguồn pin và không cắm sạc USB (`!transport_is_usb_active()`), vòng đèn Aura Breathing tự động tắt hoàn toàn để triệt tiêu dòng tiêu thụ tĩnh của 4 bóng LED RGB.
+3. **Tầng 3 (Deep Sleep):**
+   - Sau **15 phút** không có thao tác (`IDLE_SLEEP_TIMEOUT_US = 15m`), thiết bị gửi mã lệnh `0x33` chuyển cảm biến sang trạng thái ngủ sâu, sau đó kích hoạt ngắt RTC Wakeup `EXT0` trên **GPIO 2** (chân TouchOut của cảm biến SW111) rồi đưa vi điều khiển vào Deep Sleep.
+   - **Chống kẹt nút / áp lực liên tục:** Trước khi vào Deep Sleep, nếu GPIO 2 vẫn bị giữ mức cao (ví dụ bị đè trong túi), thiết bị chờ giải phóng với giới hạn 500ms để chống vòng lặp thức/ngủ liên tục microsecond.
+
+#### Anti-Ghost Wakeup Filter (1.5 Giây)
+- Khi thiết bị thức dậy từ Deep Sleep thông qua ngắt cảm ứng `EXT0` lúc đang chạy pin, bộ hẹn giờ Anti-Ghost lập tức mở cửa sổ quan sát **1.5 giây** (`ANTI_GHOST_TIMEOUT_US = 1500ms`).
+- Nếu trong 1.5 giây này người dùng **không** thực hiện quét vân tay hợp lệ (không có sự kiện xác thực sinh trắc học thành công) và không cắm cáp USB, thiết bị xác định đây là kích hoạt ngoài ý muốn (chạm quẹt ngẫu nhiên hoặc va chạm trong balo) và ngay lập tức quay trở lại chế độ Deep Sleep.
+- Cơ chế này bảo vệ hoàn hảo dung lượng pin 370 mAh, ngăn ngừa cạn kiệt pin sau nhiều ngày cất giữ.
+
 
 
