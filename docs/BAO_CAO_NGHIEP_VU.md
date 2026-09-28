@@ -1,27 +1,30 @@
 # BÁO CÁO NGHIÊN CỨU HỆ THỐNG TINYTOUCH WEB CONTROLLER
 
-**Đối tượng điều khiển:** Thiết bị USB cảm biến vân tay tinyTouch (Hardware Biometrics)  
-**Giao thức kết nối:** Web Serial API (CDC ACM, 115200 baud, 8-N-1)  
+**Đối tượng điều khiển:** Thiết bị USB/BLE cảm biến vân tay tinyTouch (Hardware Biometrics)  
+**Giao thức kết nối:** Web Serial API (CDC ACM, 115200 baud, 8-N-1) & Web Bluetooth API (Nordic UART Service - NUS)  
 **Nền tảng hỗ trợ:** Chromium Desktop (Chrome, Edge, Opera, Cốc Cốc)
 
 ---
 
 ## 1. TỔNG QUAN HỆ THỐNG
-Website `tinyTouch Web Controller` là một giao diện Web Serial điều khiển thiết bị phần cứng tinyTouch.
-- **Bản chất phần cứng:** Thiết bị USB dongle trang bị vi điều khiển ESP32-S3 và module cảm biến vân tay UART điện dung/quang học. Mẫu sinh trắc học vân tay được lưu trữ an toàn trong chip nhớ độc lập của module cảm biến. Mật khẩu vận hành theo mô hình Challenge-Response kết hợp máy chủ đã ghép đôi: thiết bị chỉ lưu khóa ghép nối (Pairing Key) trong NVS Flash, không lưu trữ mật khẩu tĩnh dạng plaintext trên chip.
+Website `tinyTouch Web Controller` là một giao diện Web điều khiển thiết bị phần cứng sinh trắc học tinyTouch qua cả 2 phương thức có dây (Web Serial) và không dây (Web Bluetooth).
+- **Bản chất phần cứng:** Thiết bị hỗ trợ Dual-Mode trang bị vi điều khiển ESP32-S3, module cảm biến vân tay UART điện dung/quang học và tùy chọn pin LiPo 370 mAh. Mẫu sinh trắc học vân tay được lưu trữ an toàn trong chip nhớ độc lập của module cảm biến. Mật khẩu vận hành theo mô hình Challenge-Response kết hợp máy chủ đã ghép đôi: thiết bị chỉ lưu khóa ghép nối (Pairing Key) trong NVS Flash, không lưu trữ mật khẩu tĩnh dạng plaintext trên chip.
 - **Cơ chế giao tiếp:**
-  - **Quản trị & Cấu hình:** Trình duyệt kết nối trực tiếp với thiết bị qua cổng COM ảo (USB CDC-ACM) bằng Web Serial API mà không cần cài đặt driver hay phần mềm trung gian.
-  - **Vận hành xác thực (Unlock/Login):** Thiết bị tự động đóng vai trò bàn phím USB HID Keyboard để gõ mật khẩu (sau khi nhận diện vân tay và xác thực gói tin phản hồi từ máy chủ), hoặc đóng vai trò thẻ thông minh phần cứng qua chuẩn USB CCID (ở chế độ PIV SmartCard).
+  - **Quản trị & Cấu hình:** Trình duyệt kết nối trực tiếp với thiết bị qua cổng COM ảo (USB CDC-ACM) bằng Web Serial API hoặc qua sóng Bluetooth Low Energy bằng Web Bluetooth API (chuẩn Nordic UART Service - NUS) mà không cần cài đặt driver hay ứng dụng nền bên thứ ba.
+  - **Vận hành xác thực (Unlock/Login):** Thiết bị tự động đóng vai trò bàn phím ảo (USB HID Keyboard khi cắm cáp Type-C, hoặc BLE HOGP Keyboard khi chạy nguồn pin) để gõ mật khẩu sau khi nhận diện vân tay và xác thực gói tin phản hồi từ máy chủ. Ở chế độ PIV SmartCard, thiết bị đóng vai trò thẻ thông minh phần cứng qua chuẩn USB CCID (chỉ hoạt động qua cáp USB có dây).
 
 ---
 
 ## 2. NGHIỆP VỤ & CÁC TÍNH NĂNG CHÍNH
 
-### 2.1. Quản lý Kết nối Web Serial
-- Kiểm tra hỗ trợ `navigator.serial` trên trình duyệt.
-- Kết nối cổng COM với tham số `baudRate: 115200`.
+### 2.1. Quản lý Kết nối Web Serial & Web Bluetooth
+- Hỗ trợ kết nối song song qua Web Serial (`navigator.serial`) và Web Bluetooth (`navigator.bluetooth`).
+- **Web Serial (USB CDC):** Tốc độ 115200 baud, hỗ trợ đầy đủ mọi chức năng quản trị, bao gồm cả nạp firmware Serial OTA.
+- **Web Bluetooth (BLE NUS):** Kết nối không dây đến thiết bị `tinyTouch Key`, theo dõi mức pin thời gian thực qua Battery Service (`0x180F`), cấu hình màu LED Aura và quản lý các Slot vân tay từ xa.
+- **An toàn Zero-Trust trên kênh không dây:** Các lệnh nguy hiểm như nạp firmware (`OTA`), khôi phục cài đặt gốc (`RESET FACTORY`) và tạo khóa thẻ PIV (`PIV CREATE`) bị cấm tuyệt đối trên Web Bluetooth (trả về lỗi `ERR DISALLOWED_ON_BLE`).
 - Hiển thị telemetry phần cứng theo thời gian thực (Protocol v7):
   - Chế độ hiện tại (`HID` hoặc `PIV`).
+  - Mức pin hiện tại (% và huy hiệu trạng thái pin khi kết nối BLE).
   - Số vân tay đã nạp (0/5 đến 5/5).
   - Trạng thái hoạt động của cảm biến vân tay (`ready` hoặc `offline`).
   - Trạng thái thẻ PIV (`ready` hoặc `unconfigured`).

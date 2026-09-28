@@ -52,7 +52,7 @@ idf.py -C firmware build
 
 Sau khi biên dịch hoàn tất, file nhị phân sẵn sàng tại:
 - **Đường dẫn binary:** `firmware/build/tiny_touch_unified.bin`
-- **Kích thước:** ~462 KB
+- **Kích thước:** ~772 KB (Bao gồm ngăn xếp NimBLE, chiếm 75% phân vùng 1024 KB, dư 25% an toàn).
 - **Bảo mật:** Đã được tự động ký Secure Boot bằng private key nội bộ (`firmware/secure_boot_signing_key.pem`).
 
 ---
@@ -60,6 +60,8 @@ Sau khi biên dịch hoàn tất, file nhị phân sẵn sàng tại:
 ## Phương pháp 1: Nạp Serial OTA (Khuyên dùng thường nhật)
 
 Phương pháp này nạp trực tiếp qua cổng CDC Serial khi thiết bị đang chạy bình thường.
+
+> ⚠️ **Quy tắc An ninh Zero-Trust:** Tính năng nạp firmware OTA **chỉ hoạt động qua kết nối cáp USB vật lý (Web Serial CDC)**. Khi kết nối qua Web Bluetooth (BLE NUS), các lệnh `OTA BEGIN`, `OTA WRITE`, `OTA COMMIT` bị cấm hoàn toàn (`ERR DISALLOWED_ON_BLE`) nhằm ngăn ngừa tấn công nạp mã độc từ xa qua sóng vô tuyến.
 
 ### Cơ chế hoạt động:
 - Giao tiếp qua lệnh Console: `OTA BEGIN`, `OTA WRITE` (chia nhỏ dữ liệu thành các chunk Base64 3072 bytes), và `OTA COMMIT`.

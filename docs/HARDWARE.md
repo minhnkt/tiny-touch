@@ -106,13 +106,31 @@ Mạch **ESP32-S3 SuperMini** kết nối với **SW111**:
 
 ---
 
+### 3.3. Tùy chọn lắp Pin LiPo 370 mAh (Vận hành không dây BLE)
+
+Đối với phiên bản tinyTouch hoạt động không dây qua Bluetooth Low Energy (BLE):
+
+1. **Lựa chọn Pin:**
+   - Pin Lithium Polymer (LiPo) 3.7V dung lượng **370 mAh** (kích thước tham khảo ~402035 hoặc tương đương, vừa vặn trong khoang vỏ 3D).
+   - Tích hợp sẵn mạch bảo vệ pin PCM (chống quá sạc > 4.2V và quá xả < 2.8V).
+2. **Đấu nối nguồn:**
+   - **Với XIAO ESP32-S3:** Bo mạch có sẵn mạch sạc pin LiPo và 2 pad hàn pin ở mặt lưng (`BAT+` và `BAT-`). Hàn cực dương pin vào `BAT+`, cực âm vào `BAT-`. Khi cắm cáp USB Type-C, bo mạch tự động sạc pin.
+   - **Với ESP32-S3 SuperMini:** Kết nối cực dương pin qua mạch sạc nhỏ gọn (như module TP4056/TC4056 hoặc mạch quản lý sạc 1S) vào chân `5V` (VBUS), cực âm nối `GND`. Hoặc dùng diode Schottky (như SS34/1N5819) cách ly nếu cấp thẳng vào nguồn 3V3.
+3. **Quản lý dòng tiêu thụ:**
+   - **Active Mode (đang quét/gõ):** ~60-80 mA.
+   - **Light Sleep (đã kết nối BLE, tắt LED thở):** ~8-12 mA (nhờ Slave Latency 20 và CPU tickless).
+   - **Deep Sleep (sau 15 phút không dùng):** < 30 µA (cảm biến được đưa về trạng thái ngủ qua lệnh UART `0x33`, đánh thức bằng ngắt GPIO 2).
+   - **Thời lượng pin 370 mAh:** Đáp ứng từ 2-4 tuần sử dụng thông thường cho mỗi lần sạc.
+
+---
+
 ## 4. Trạng thái đèn LED chỉ thị (LED Status Indicators)
 
 Cảm biến vân tay tròn (SW111, Grow R503) tích hợp vòng đèn LED RGB chỉ thị trạng thái vận hành trực quan của thiết bị:
 
 | Màu sắc LED | Trạng thái thiết bị | Ý nghĩa & Hành vi chi tiết |
 |:---|:---|:---|
-| 🔵 / 🟡 **Tùy biến Aura Breathing** | **Chờ (Idle / Standby)** | Hiệu ứng nhịp thở (Breathing Pulse) chuyển đổi ánh sáng mượt mà giữa cặp màu bắt đầu và kết thúc. Có thể tùy chỉnh riêng biệt theo chế độ:<br>• **HID Mode (mặc định):** Cyan ➔ Blue (mã `3 1`).<br>• **PIV Mode (mặc định):** Yellow ➔ Red (mã `6 4`).<br>• Tùy chọn 7 màu RGB (`1`: Blue, `2`: Green, `3`: Cyan, `4`: Red, `5`: Purple, `6`: Yellow, `7`: White) qua Web Controller hoặc lệnh `SET LED_HID` / `SET LED_PIV`. |
+| 🔵 / 🟡 **Tùy biến Aura Breathing** | **Chờ (Idle / Standby)** | Hiệu ứng nhịp thở (Breathing Pulse) chuyển đổi ánh sáng mượt mà giữa cặp màu bắt đầu và kết thúc. Có thể tùy chỉnh riêng biệt theo chế độ:<br>• **HID Mode (mặc định):** Cyan ➔ Blue (mã `3 1`).<br>• **PIV Mode (mặc định):** Yellow ➔ Red (mã `6 4`).<br>• Tùy chọn 7 màu RGB (`1`: Blue, `2`: Green, `3`: Cyan, `4`: Red, `5`: Purple, `6`: Yellow, `7`: White) qua Web Controller hoặc lệnh `SET LED_HID` / `SET LED_PIV`.<br>*(⚠️ **Lưu ý tiết kiệm pin:** Khi ngắt cáp USB và chạy bằng pin LiPo, đèn LED Aura thở được tự động tắt hoàn toàn để triệt tiêu dòng rò 15-30mA)*. |
 | 🟢 **Xanh lá (Green)** | **Thành công (Success / Match OK)** | Nhận diện vân tay trùng khớp hợp lệ với một trong các Slot đã đăng ký, hoặc hoàn thành một bước/chu kỳ lấy mẫu vân tay mới. Đèn sáng xanh trong 350ms rồi tự động chuyển về nhịp thở trạng thái chờ. |
 | 🔴 **Đỏ (Red)** | **Lỗi / Không khớp (Error / Mismatch)** | Vân tay đặt vào không khớp với bất kỳ Slot nào trong bộ nhớ, ngón tay nhấc ra quá sớm khiến cảm biến chụp lỗi, hoặc quy trình đăng ký thất bại. Đèn sáng đỏ cảnh báo trong 350ms rồi tự động chuyển về nhịp thở trạng thái chờ. |
 | 🟣 **Tím / Chớp nháy (Prompt)** | **Yêu cầu xác thực (Auth Required)** | Đèn nhấp nháy chuyển trạng thái khi thiết bị nhận lệnh quản trị `AUTH` hoặc nạp OTA, nhắc người dùng chạm vân tay hợp lệ vào cảm biến để cấp quyền. |
