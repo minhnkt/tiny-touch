@@ -62,6 +62,7 @@ tiny-touch/
 │   └── hardware/case/       # File thiết kế vỏ 3D (STL và STEP)
 │
 ├── LICENSE                  # Giấy phép mã nguồn mở MIT
+├── CHANGELOG.md             # Lịch sử thay đổi & phiên bản phát hành
 ├── VERSION                  # Phiên bản hiện tại (v0.1.28)
 └── README.md                # Tài liệu tổng quan dự án
 ```
